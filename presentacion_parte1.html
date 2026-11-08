@@ -291,7 +291,7 @@ Tópicos Especiales 1 · Doctorado en Informática
 <p>Un chatbot debe presentar como máximo <strong>4 preguntas</strong> de entre <strong>9 candidatas</strong> al inicio de la conversación.</p>
 </div>
 </div><div class="column" style="width:50%;">
-<div id="0651725c" class="cell" data-execution_count="1">
+<div id="790f28e2" class="cell" data-execution_count="1">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -346,7 +346,7 @@ Tópicos Especiales 1 · Doctorado en Informática
 </section>
 <section id="parámetros-del-modelo" class="slide level2 center">
 <h2>Parámetros del modelo</h2>
-<div id="6cbab531" class="cell" data-execution_count="2">
+<div id="e4b6924a" class="cell" data-execution_count="2">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -470,7 +470,7 @@ Tópicos Especiales 1 · Doctorado en Informática
 </section>
 <section id="datos-y-utilidades" class="slide level2 center">
 <h2>Datos y utilidades</h2>
-<div id="db600fdd" class="cell" data-execution_count="3">
+<div id="8d091ecd" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1" data-code-line-numbers="|3-5|7-10|13"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a aria-label="1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb1-2"><a aria-label="2"></a></span>
 <span id="cb1-3"><a aria-label="3"></a>r <span class="op">=</span> np.array([<span class="fl">0.90</span>, <span class="fl">0.80</span>, <span class="fl">0.72</span>, <span class="fl">0.89</span>, <span class="fl">0.80</span>, <span class="fl">0.70</span>, <span class="fl">0.92</span>, <span class="fl">0.77</span>, <span class="fl">0.75</span>])</span>
@@ -501,7 +501,7 @@ Q9 (Objeti.): u = 0.6505</code></pre>
 </section>
 <section id="solución-lp-con-scipy.optimize.linprog" class="slide level2 center">
 <h2>Solución LP con <code>scipy.optimize.linprog</code></h2>
-<div id="682fe6cf" class="cell" data-execution_count="4">
+<div id="97c71bb3" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3" data-code-line-numbers="|1-2|4-12|14-15"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a aria-label="1"></a><span class="im">from</span> scipy.optimize <span class="im">import</span> linprog</span>
 <span id="cb3-2"><a aria-label="2"></a>n, l_vec <span class="op">=</span> <span class="dv">9</span>, np.array([<span class="fl">0.75</span>,<span class="fl">0.55</span>,<span class="fl">0.70</span>,<span class="fl">0.80</span>,<span class="fl">0.45</span>,<span class="fl">0.40</span>,<span class="fl">1.00</span>,<span class="fl">0.65</span>,<span class="fl">0.50</span>])</span>
 <span id="cb3-3"><a aria-label="3"></a></span>
@@ -530,7 +530,7 @@ Q9 (Objeti.): u = 0.6505</code></pre>
 </section>
 <section id="solución-ilp-con-pulp" class="slide level2 center">
 <h2>Solución ILP con PuLP</h2>
-<div id="2d1b99ed" class="cell" data-execution_count="5">
+<div id="26d34a20" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5" data-code-line-numbers="|1-4|6-13|15-20"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a aria-label="1"></a><span class="im">from</span> pulp <span class="im">import</span> (LpMaximize, LpProblem, LpVariable,</span>
 <span id="cb5-2"><a aria-label="2"></a>                  lpSum, value, LpBinary)</span>
 <span id="cb5-3"><a aria-label="3"></a></span>
@@ -566,7 +566,7 @@ Latencia: 2.60/2.80</code></pre>
 </section>
 <section id="utilidad-por-pregunta-solución-ilp" class="slide level2 center">
 <h2>Utilidad por pregunta — Solución ILP</h2>
-<div id="07551452" class="cell" data-execution_count="6">
+<div id="452f4a39" class="cell" data-execution_count="6">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a aria-label="1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
@@ -615,7 +615,7 @@ Latencia: 2.60/2.80</code></pre>
 </section>
 <section id="comparación-lp-vs-ilp" class="slide level2 center">
 <h2>Comparación LP vs ILP</h2>
-<div id="ae938a12" class="cell" data-execution_count="7">
+<div id="6d608321" class="cell" data-execution_count="7">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a aria-label="1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="fl">4.5</span>))</span>
@@ -660,7 +660,7 @@ Latencia: 2.60/2.80</code></pre>
 </section>
 <section id="uso-de-recursos" class="slide level2 center">
 <h2>Uso de recursos</h2>
-<div id="39074671" class="cell" data-execution_count="8">
+<div id="b220738d" class="cell" data-execution_count="8">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a aria-label="1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">9</span>, <span class="fl">4.5</span>))</span>
@@ -793,7 +793,7 @@ Latencia: 2.60/2.80</code></pre>
 </section>
 <section id="variación-de-parámetros" class="slide level2 center">
 <h2>Variación de parámetros</h2>
-<div id="cde2c8aa" class="cell" data-execution_count="9">
+<div id="0e99646f" class="cell" data-execution_count="9">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a aria-label="1"></a><span class="im">from</span> pulp <span class="im">import</span> PULP_CBC_CMD</span>
@@ -1219,7 +1219,7 @@ Latencia: 2.60/2.80</code></pre>
         }
           var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
           var mailtoRegex = new RegExp(/^mailto:/);
-            var filterRegex = new RegExp('/' + window.location.host + '/');
+            var filterRegex = new RegExp("https:\/\/meaguirre3\.github\.io\/Optimizacion\/");
           var isInternal = (href) => {
               return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
           }

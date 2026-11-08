@@ -4,14 +4,14 @@
     "href": "simulaciones_parte2.html",
     "title": "Implementación — Parte II",
     "section": "",
-    "text": "—title: “Implementación — Parte II”subtitle: “Ruta Más Corta (SPP) y Agente Viajero (TSP)”description: “Notebook con Dijkstra, formulación LP/ILP (PuLP), heurísticas TSP y análisis de escalabilidad con visualizaciones Plotly.”categories: [Parte II, Notebook, SPP, TSP, Python]image: images/parte2_thumb.svgformat: html: code-fold: true code-tools: true toc: true toc-depth: 3—"
+    "text": "Este notebook presenta la implementación de los dos problemas clásicos de optimización combinatoria de la Parte II:\n\nProblema de la Ruta Más Corta (SPP) — Algoritmo de Dijkstra desde cero + verificación LP con PuLP.\nProblema del Agente Viajero (TSP) — Formulación ILP (Miller-Tucker-Zemlin), enumeración exhaustiva y heurísticas (vecino más cercano, 2-opt).\n\nSe incluyen visualizaciones interactivas con Plotly y análisis de escalabilidad.\n\n\nCode\nimport numpy as np\nimport networkx as nx\nimport plotly.graph_objects as go\nimport plotly.io as pio\npio.renderers.default = \"notebook\"\nfrom plotly.subplots import make_subplots\nimport plotly.express as px\nimport heapq\nimport itertools\nimport time\nimport pandas as pd\nfrom pulp import (\n    LpProblem, LpMinimize, LpVariable, LpBinary,\n    LpContinuous, lpSum, value, LpStatus\n)"
   },
   {
     "objectID": "simulaciones_parte2.html#implementación-computacional-parte-ii",
     "href": "simulaciones_parte2.html#implementación-computacional-parte-ii",
     "title": "Implementación — Parte II",
-    "section": "Implementación computacional — Parte II",
-    "text": "Implementación computacional — Parte II\nEste notebook presenta la implementación de los dos problemas clásicos de optimización combinatoria de la Parte II:\n\nProblema de la Ruta Más Corta (SPP) — Algoritmo de Dijkstra desde cero + verificación LP con PuLP.\nProblema del Agente Viajero (TSP) — Formulación ILP (Miller-Tucker-Zemlin), enumeración exhaustiva y heurísticas (vecino más cercano, 2-opt).\n\nSe incluyen visualizaciones interactivas con Plotly y análisis de escalabilidad.\n\n\nCode\nimport numpy as np\nimport networkx as nx\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nimport plotly.express as px\nimport heapq\nimport itertools\nimport time\nimport pandas as pd\nfrom pulp import (\n    LpProblem, LpMinimize, LpVariable, LpBinary,\n    LpContinuous, lpSum, value, LpStatus\n)"
+    "section": "",
+    "text": "Este notebook presenta la implementación de los dos problemas clásicos de optimización combinatoria de la Parte II:\n\nProblema de la Ruta Más Corta (SPP) — Algoritmo de Dijkstra desde cero + verificación LP con PuLP.\nProblema del Agente Viajero (TSP) — Formulación ILP (Miller-Tucker-Zemlin), enumeración exhaustiva y heurísticas (vecino más cercano, 2-opt).\n\nSe incluyen visualizaciones interactivas con Plotly y análisis de escalabilidad.\n\n\nCode\nimport numpy as np\nimport networkx as nx\nimport plotly.graph_objects as go\nimport plotly.io as pio\npio.renderers.default = \"notebook\"\nfrom plotly.subplots import make_subplots\nimport plotly.express as px\nimport heapq\nimport itertools\nimport time\nimport pandas as pd\nfrom pulp import (\n    LpProblem, LpMinimize, LpVariable, LpBinary,\n    LpContinuous, lpSum, value, LpStatus\n)"
   },
   {
     "objectID": "simulaciones_parte2.html#funciones-auxiliares-de-visualización",

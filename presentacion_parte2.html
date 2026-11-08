@@ -278,7 +278,7 @@ Tópicos Especiales 1 · Doctorado en Informática
 </div>
 </div>
 </div><div class="column" style="width:45%;">
-<div id="8ff434af" class="cell" data-execution_count="1">
+<div id="1083733e" class="cell" data-execution_count="1">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -360,7 +360,7 @@ Tópicos Especiales 1 · Doctorado en Informática
 </section>
 <section id="implementación-dijkstra" class="slide level2 center">
 <h2>Implementación — Dijkstra</h2>
-<div id="306dfeca" class="cell" data-execution_count="2">
+<div id="5c519a15" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1" data-code-line-numbers="|1-2|4-11|13-17"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a aria-label="1"></a><span class="im">import</span> heapq</span>
 <span id="cb1-2"><a aria-label="2"></a></span>
 <span id="cb1-3"><a aria-label="3"></a><span class="kw">def</span> dijkstra(graph, source):</span>
@@ -383,7 +383,7 @@ Tópicos Especiales 1 · Doctorado en Informática
 </section>
 <section id="ejecución-paso-a-paso" class="slide level2 center">
 <h2>Ejecución paso a paso</h2>
-<div id="a3472df5" class="cell" data-execution_count="3">
+<div id="4ec40220" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a aria-label="1"></a>graph <span class="op">=</span> {<span class="dv">1</span>:[(<span class="dv">2</span>,<span class="dv">7</span>),(<span class="dv">4</span>,<span class="dv">9</span>),(<span class="dv">5</span>,<span class="dv">14</span>)], <span class="dv">2</span>:[(<span class="dv">3</span>,<span class="dv">10</span>),(<span class="dv">5</span>,<span class="dv">15</span>)],</span>
@@ -419,7 +419,7 @@ Costo: 20
 </section>
 <section id="dijkstra-paso-a-paso-13" class="slide level2 smaller center">
 <h2>Dijkstra paso a paso (1/3)</h2>
-<div id="4f1af6f3" class="cell" data-execution_count="4">
+<div id="68af77be" class="cell" data-execution_count="4">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -431,7 +431,7 @@ Costo: 20
 </section>
 <section id="dijkstra-paso-a-paso-23" class="slide level2 smaller center">
 <h2>Dijkstra paso a paso (2/3)</h2>
-<div id="471f9b7d" class="cell" data-execution_count="5">
+<div id="f03b37d1" class="cell" data-execution_count="5">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -443,7 +443,7 @@ Costo: 20
 </section>
 <section id="dijkstra-paso-a-paso-33-resultado" class="slide level2 smaller center">
 <h2>Dijkstra paso a paso (3/3) — Resultado</h2>
-<div id="0e828708" class="cell" data-execution_count="6">
+<div id="25bdcb2a" class="cell" data-execution_count="6">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -455,7 +455,7 @@ Costo: 20
 </section>
 <section id="verificación-lp-con-pulp" class="slide level2 center">
 <h2>Verificación LP con PuLP</h2>
-<div id="468009ec" class="cell" data-execution_count="7">
+<div id="eac11008" class="cell" data-execution_count="7">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a aria-label="1"></a><span class="im">from</span> pulp <span class="im">import</span> LpProblem, LpMinimize, LpVariable, LpContinuous, lpSum, value</span>
@@ -515,7 +515,7 @@ Coincide con Dijkstra: costo = 20</code></pre>
 <p>Primer abordaje computacional: <span class="citation" data-cites="dantzig1954"><a href="#/referencias" role="doc-biblioref" onclick="">[8]</a></span> (49 ciudades).</p>
 </div>
 </div><div class="column" style="width:45%;">
-<div id="0166b6b9" class="cell" data-execution_count="8">
+<div id="c01ac137" class="cell" data-execution_count="8">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -587,7 +587,7 @@ Coincide con Dijkstra: costo = 20</code></pre>
 </section>
 <section id="solución-exacta-mtz-con-pulp" class="slide level2 center">
 <h2>Solución exacta — MTZ con PuLP</h2>
-<div id="b7ab160d" class="cell" data-execution_count="9">
+<div id="faae3945" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6" data-code-line-numbers="|1-4|6-11|13-18"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a aria-label="1"></a><span class="im">from</span> pulp <span class="im">import</span> LpMaximize, LpBinary, LpStatus</span>
 <span id="cb6-2"><a aria-label="2"></a></span>
 <span id="cb6-3"><a aria-label="3"></a>dm <span class="op">=</span> np.array([[<span class="dv">0</span>,<span class="dv">10</span>,<span class="dv">15</span>,<span class="dv">20</span>,<span class="dv">6</span>],[<span class="dv">10</span>,<span class="dv">0</span>,<span class="dv">8</span>,<span class="dv">18</span>,<span class="dv">12</span>],</span>
@@ -615,7 +615,7 @@ Coincide con Dijkstra: costo = 20</code></pre>
 </section>
 <section id="resultado-tsp" class="slide level2 center">
 <h2>Resultado TSP</h2>
-<div id="b8f83aa3" class="cell" data-execution_count="10">
+<div id="65a6e870" class="cell" data-execution_count="10">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a aria-label="1"></a>tour_r <span class="op">=</span> [<span class="dv">0</span>]<span class="op">;</span> cur <span class="op">=</span> <span class="dv">0</span></span>
@@ -637,7 +637,7 @@ Costo: 43</code></pre>
 </div>
 <div class="fragment">
 <p><strong>Verificación por enumeración exhaustiva:</strong></p>
-<div id="63a53bb0" class="cell" data-execution_count="11">
+<div id="929a3c3a" class="cell" data-execution_count="11">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a aria-label="1"></a><span class="im">import</span> itertools</span>
@@ -662,7 +662,7 @@ Peor tour: costo = 79</code></pre>
 </section>
 <section id="tsp-paso-a-paso-vecino-más-cercano" class="slide level2 smaller center">
 <h2>TSP paso a paso — Vecino más cercano</h2>
-<div id="cb4de298" class="cell" data-execution_count="12">
+<div id="e9d0cc35" class="cell" data-execution_count="12">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -674,7 +674,7 @@ Peor tour: costo = 79</code></pre>
 </section>
 <section id="tsp-paso-a-paso-mejora-2-opt" class="slide level2 smaller center">
 <h2>TSP paso a paso — Mejora 2-opt</h2>
-<div id="862fbf83" class="cell" data-execution_count="13">
+<div id="d6c0e50f" class="cell" data-execution_count="13">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -686,7 +686,7 @@ Peor tour: costo = 79</code></pre>
 </section>
 <section id="heurísticas-vecino-más-cercano-2-opt-croes1958" class="slide level2 center">
 <h2>Heurísticas: Vecino más cercano + 2-opt <span class="citation" data-cites="croes1958"><a href="#/referencias" role="doc-biblioref" onclick="">[14]</a></span></h2>
-<div id="1b41e090" class="cell" data-execution_count="14">
+<div id="de87070c" class="cell" data-execution_count="14">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a aria-label="1"></a><span class="kw">def</span> nn_tsp(dm, start<span class="op">=</span><span class="dv">0</span>):</span>
@@ -726,7 +726,7 @@ Gap NN: 23.3%  |  Gap 2-opt: 0.0%</code></pre>
 </section>
 <section id="escalabilidad-dijkstra-vs-mtz" class="slide level2 center">
 <h2>Escalabilidad: Dijkstra vs MTZ</h2>
-<div id="83a502f1" class="cell" data-execution_count="15">
+<div id="31c381e1" class="cell" data-execution_count="15">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a aria-label="1"></a><span class="im">import</span> time</span>
@@ -803,7 +803,7 @@ Gap NN: 23.3%  |  Gap 2-opt: 0.0%</code></pre>
 </section>
 <section id="spp-vs-tsp-resumen" class="slide level2 center">
 <h2>SPP vs TSP — Resumen</h2>
-<div id="0b1331bf" class="cell" data-execution_count="16">
+<div id="e52c1dca" class="cell" data-execution_count="16">
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -1182,7 +1182,7 @@ Gap NN: 23.3%  |  Gap 2-opt: 0.0%</code></pre>
         }
           var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
           var mailtoRegex = new RegExp(/^mailto:/);
-            var filterRegex = new RegExp('/' + window.location.host + '/');
+            var filterRegex = new RegExp("https:\/\/meaguirre3\.github\.io\/Optimizacion\/");
           var isInternal = (href) => {
               return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
           }
