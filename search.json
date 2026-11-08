@@ -1,0 +1,646 @@
+[
+  {
+    "objectID": "simulaciones_parte2.html",
+    "href": "simulaciones_parte2.html",
+    "title": "Implementación — Parte II",
+    "section": "",
+    "text": "—title: “Implementación — Parte II”subtitle: “Ruta Más Corta (SPP) y Agente Viajero (TSP)”description: “Notebook con Dijkstra, formulación LP/ILP (PuLP), heurísticas TSP y análisis de escalabilidad con visualizaciones Plotly.”categories: [Parte II, Notebook, SPP, TSP, Python]image: images/parte2_thumb.svgformat: html: code-fold: true code-tools: true toc: true toc-depth: 3—"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#implementación-computacional-parte-ii",
+    "href": "simulaciones_parte2.html#implementación-computacional-parte-ii",
+    "title": "Implementación — Parte II",
+    "section": "Implementación computacional — Parte II",
+    "text": "Implementación computacional — Parte II\nEste notebook presenta la implementación de los dos problemas clásicos de optimización combinatoria de la Parte II:\n\nProblema de la Ruta Más Corta (SPP) — Algoritmo de Dijkstra desde cero + verificación LP con PuLP.\nProblema del Agente Viajero (TSP) — Formulación ILP (Miller-Tucker-Zemlin), enumeración exhaustiva y heurísticas (vecino más cercano, 2-opt).\n\nSe incluyen visualizaciones interactivas con Plotly y análisis de escalabilidad.\n\n\nCode\nimport numpy as np\nimport networkx as nx\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nimport plotly.express as px\nimport heapq\nimport itertools\nimport time\nimport pandas as pd\nfrom pulp import (\n    LpProblem, LpMinimize, LpVariable, LpBinary,\n    LpContinuous, lpSum, value, LpStatus\n)"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#funciones-auxiliares-de-visualización",
+    "href": "simulaciones_parte2.html#funciones-auxiliares-de-visualización",
+    "title": "Implementación — Parte II",
+    "section": "Funciones auxiliares de visualización",
+    "text": "Funciones auxiliares de visualización\nFunciones para representar grafos interactivos con Plotly.\n\n\nCode\ndef plot_graph(G, pos, title='Grafo', path=None, path_color='red',\n               node_color='lightblue', node_labels=None,\n               edge_labels=True, highlight_nodes=None,\n               width=700, height=500):\n    \"\"\"\n    Visualiza un grafo con Plotly de forma interactiva.\n    \"\"\"\n    edge_traces = []\n    annotations = []\n\n    path_edges = set()\n    if path:\n        for i in range(len(path) - 1):\n            path_edges.add((path[i], path[i+1]))\n\n    for u, v, data in G.edges(data=True):\n        x0, y0 = pos[u]\n        x1, y1 = pos[v]\n        is_path = (u, v) in path_edges or (v, u) in path_edges\n        color = path_color if is_path else '#888'\n        w = 4 if is_path else 1.5\n\n        edge_traces.append(go.Scatter(\n            x=[x0, x1, None], y=[y0, y1, None],\n            mode='lines',\n            line=dict(width=w, color=color),\n            hoverinfo='none', showlegend=False\n        ))\n\n        if edge_labels:\n            weight = data.get('weight', '')\n            mx, my = (x0 + x1) / 2, (y0 + y1) / 2\n            annotations.append(dict(\n                x=mx, y=my, text=str(weight),\n                showarrow=False, font=dict(size=11, color='darkblue'),\n                bgcolor='white', borderpad=2\n            ))\n\n    node_x = [pos[n][0] for n in G.nodes()]\n    node_y = [pos[n][1] for n in G.nodes()]\n\n    colors = []\n    for n in G.nodes():\n        if highlight_nodes and n in highlight_nodes:\n            colors.append(highlight_nodes[n])\n        elif path and n in path:\n            colors.append(path_color)\n        else:\n            colors.append(node_color)\n\n    labels = []\n    for n in G.nodes():\n        lbl = node_labels[n] if node_labels and n in node_labels else str(n)\n        labels.append(lbl)\n\n    node_trace = go.Scatter(\n        x=node_x, y=node_y, mode='markers+text',\n        text=labels, textposition='top center',\n        textfont=dict(size=14, color='black'),\n        marker=dict(size=30, color=colors, line=dict(width=2, color='black')),\n        hoverinfo='text',\n        hovertext=[f'Nodo {n}' for n in G.nodes()],\n        showlegend=False\n    )\n\n    fig = go.Figure(data=edge_traces + [node_trace])\n    fig.update_layout(\n        title=dict(text=title, x=0.5, font=dict(size=16)),\n        showlegend=False,\n        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),\n        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),\n        annotations=annotations,\n        width=width, height=height,\n        margin=dict(l=20, r=20, t=50, b=20),\n        plot_bgcolor='white'\n    )\n    return fig"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#definición",
+    "href": "simulaciones_parte2.html#definición",
+    "title": "Implementación — Parte II",
+    "section": "Definición",
+    "text": "Definición\nDado un grafo dirigido \\(G = (V, A)\\) con costos no negativos \\(c_{ij} \\geq 0\\) en cada arco, un nodo origen \\(s\\) y un nodo destino \\(t\\), el problema busca el camino de \\(s\\) a \\(t\\) de costo mínimo."
+  },
+  {
+    "objectID": "simulaciones_parte2.html#formulación-lp",
+    "href": "simulaciones_parte2.html#formulación-lp",
+    "title": "Implementación — Parte II",
+    "section": "Formulación LP",
+    "text": "Formulación LP\n\\[\\min \\sum_{(i,j) \\in A} c_{ij} \\, x_{ij}\\]\nsujeto a:\n\\[\\sum_{j:(i,j)\\in A} x_{ij} - \\sum_{j:(j,i)\\in A} x_{ji} = \\begin{cases} 1 & \\text{si } i = s \\\\ -1 & \\text{si } i = t \\\\ 0 & \\text{en otro caso} \\end{cases} \\quad \\forall i \\in V\\]\n\\[x_{ij} \\geq 0 \\quad \\forall (i,j) \\in A\\]\nPropiedad clave: La matriz de incidencia del grafo dirigido es totalmente unimodular, por lo que la relajación LP produce soluciones enteras sin imponer \\(x_{ij} \\in \\{0, 1\\}\\)."
+  },
+  {
+    "objectID": "simulaciones_parte2.html#implementación-del-algoritmo-de-dijkstra",
+    "href": "simulaciones_parte2.html#implementación-del-algoritmo-de-dijkstra",
+    "title": "Implementación — Parte II",
+    "section": "Implementación del Algoritmo de Dijkstra",
+    "text": "Implementación del Algoritmo de Dijkstra\n\n\nCode\ndef dijkstra(graph, source):\n    \"\"\"Dijkstra con cola de prioridad (min-heap).\"\"\"\n    dist = {node: float('inf') for node in graph}\n    prev = {node: None for node in graph}\n    dist[source] = 0\n    visited = set()\n    heap = [(0, source)]\n    steps = []\n\n    while heap:\n        d_u, u = heapq.heappop(heap)\n        if u in visited:\n            continue\n        visited.add(u)\n\n        step = {\n            'node': u, 'dist': d_u,\n            'visited': set(visited),\n            'distances': dict(dist),\n            'relaxations': []\n        }\n\n        for v, w in graph[u]:\n            if v not in visited and d_u + w &lt; dist[v]:\n                old_dist = dist[v]\n                dist[v] = d_u + w\n                prev[v] = u\n                heapq.heappush(heap, (dist[v], v))\n                step['relaxations'].append((v, old_dist, dist[v]))\n\n        step['distances_after'] = dict(dist)\n        steps.append(step)\n\n    return dist, prev, steps\n\n\ndef reconstruct_path(prev, source, target):\n    \"\"\"Reconstruye el camino desde source a target.\"\"\"\n    path = []\n    node = target\n    while node is not None:\n        path.append(node)\n        node = prev[node]\n    path.reverse()\n    if path[0] != source:\n        return []\n    return path"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#ejemplo-numérico-grafo-de-6-nodos",
+    "href": "simulaciones_parte2.html#ejemplo-numérico-grafo-de-6-nodos",
+    "title": "Implementación — Parte II",
+    "section": "Ejemplo numérico: Grafo de 6 nodos",
+    "text": "Ejemplo numérico: Grafo de 6 nodos\nCreamos el grafo del ejemplo del informe (Figura 1) y ejecutamos Dijkstra desde el nodo 1 al nodo 6.\n\n\nCode\ngraph_adj = {\n    1: [(2, 7), (4, 9), (5, 14)],\n    2: [(3, 10), (5, 15)],\n    3: [(6, 11)],\n    4: [(2, 6), (5, 2)],\n    5: [(6, 9)],\n    6: []\n}\n\nG_spp = nx.DiGraph()\nedges_spp = [\n    (1, 2, 7), (1, 4, 9), (1, 5, 14),\n    (2, 3, 10), (2, 5, 15),\n    (3, 6, 11),\n    (4, 2, 6), (4, 5, 2),\n    (5, 6, 9)\n]\nfor u, v, w in edges_spp:\n    G_spp.add_edge(u, v, weight=w)\n\npos_spp = {\n    1: (0, 1), 2: (1, 1.5), 3: (2, 1.5),\n    4: (0.5, 0), 5: (1.5, 0), 6: (2.5, 0.5)\n}\n\nfig_spp = plot_graph(G_spp, pos_spp, title='Grafo Dirigido — Problema de Ruta Más Corta')\nfig_spp.show()\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json\n\n\n\n\nCode\nsource, target = 1, 6\ndist, prev, steps = dijkstra(graph_adj, source)\nshortest_path = reconstruct_path(prev, source, target)\n\nprint('=== Algoritmo de Dijkstra ===')\nprint(f'Origen: {source}, Destino: {target}')\nprint(f'Ruta más corta: {\" → \".join(map(str, shortest_path))}')\nprint(f'Costo total: {dist[target]}')\nprint()\nprint('Distancias mínimas desde nodo 1:')\nfor node in sorted(dist.keys()):\n    print(f'  d[{node}] = {dist[node]}')\nprint()\nprint('Pasos del algoritmo:')\nfor i, step in enumerate(steps):\n    relax = ', '.join([f'd[{v}]: {old}→{new}' for v, old, new in step['relaxations']])\n    relax = relax if relax else 'Sin relajaciones'\n    print(f'  Paso {i+1}: Extraer nodo {step[\"node\"]} (d={step[\"dist\"]}) — {relax}')\n\n\n=== Algoritmo de Dijkstra ===\nOrigen: 1, Destino: 6\nRuta más corta: 1 → 4 → 5 → 6\nCosto total: 20\n\nDistancias mínimas desde nodo 1:\n  d[1] = 0\n  d[2] = 7\n  d[3] = 17\n  d[4] = 9\n  d[5] = 11\n  d[6] = 20\n\nPasos del algoritmo:\n  Paso 1: Extraer nodo 1 (d=0) — d[2]: inf→7, d[4]: inf→9, d[5]: inf→14\n  Paso 2: Extraer nodo 2 (d=7) — d[3]: inf→17\n  Paso 3: Extraer nodo 4 (d=9) — d[5]: 14→11\n  Paso 4: Extraer nodo 5 (d=11) — d[6]: inf→20\n  Paso 5: Extraer nodo 3 (d=17) — Sin relajaciones\n  Paso 6: Extraer nodo 6 (d=20) — Sin relajaciones\n\n\n\n\nCode\nfig_path = plot_graph(\n    G_spp, pos_spp,\n    title=f'Ruta Más Corta: {\" → \".join(map(str, shortest_path))} (costo = {dist[target]})',\n    path=shortest_path,\n    path_color='#e74c3c'\n)\nfig_path.show()\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#visualización-paso-a-paso-de-dijkstra",
+    "href": "simulaciones_parte2.html#visualización-paso-a-paso-de-dijkstra",
+    "title": "Implementación — Parte II",
+    "section": "Visualización paso a paso de Dijkstra",
+    "text": "Visualización paso a paso de Dijkstra\n\n\nCode\nfor i, step in enumerate(steps):\n    visited = step['visited']\n    current = step['node']\n    dists = step['distances_after']\n\n    highlight = {}\n    for n in G_spp.nodes():\n        if n == current:\n            highlight[n] = '#e74c3c'\n        elif n in visited:\n            highlight[n] = '#2ecc71'\n        else:\n            highlight[n] = 'lightblue'\n\n    labels = {}\n    for n in G_spp.nodes():\n        d = dists.get(n, float('inf'))\n        d_str = str(d) if d != float('inf') else '∞'\n        labels[n] = f'{n} (d={d_str})'\n\n    fig_step = plot_graph(\n        G_spp, pos_spp,\n        title=f'Paso {i+1}: Extraer nodo {current} (d={step[\"dist\"]})',\n        highlight_nodes=highlight, node_labels=labels\n    )\n\n    relaxations = step['relaxations']\n    relax_text = ', '.join(\n        [f'd[{v}]: {old}→{new}' for v, old, new in relaxations]\n    ) if relaxations else 'Sin relajaciones'\n\n    fig_step.add_annotation(\n        x=0.5, y=-0.05, xref='paper', yref='paper',\n        text=f'Relajaciones: {relax_text}',\n        showarrow=False, font=dict(size=12),\n        bgcolor='lightyellow', borderpad=4\n    )\n    fig_step.show()\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#verificación-lp-con-pulp",
+    "href": "simulaciones_parte2.html#verificación-lp-con-pulp",
+    "title": "Implementación — Parte II",
+    "section": "Verificación LP con PuLP",
+    "text": "Verificación LP con PuLP\nResolvemos el mismo problema mediante programación lineal para verificar la equivalencia con Dijkstra.\n\n\nCode\nnodes_all = list(graph_adj.keys())\narcs = [(u, v, w) for u in graph_adj for v, w in graph_adj[u]]\n\nprob_spp = LpProblem('Ruta_Mas_Corta', LpMinimize)\nx = {}\nfor u, v, w in arcs:\n    x[(u, v)] = LpVariable(f'x_{u}_{v}', lowBound=0, cat=LpContinuous)\n\nprob_spp += lpSum(w * x[(u, v)] for u, v, w in arcs)\n\ns, t = 1, 6\nfor i in nodes_all:\n    outflow = lpSum(x[(u, v)] for u, v, _ in arcs if u == i)\n    inflow = lpSum(x[(u, v)] for u, v, _ in arcs if v == i)\n    if i == s:\n        prob_spp += outflow - inflow == 1\n    elif i == t:\n        prob_spp += outflow - inflow == -1\n    else:\n        prob_spp += outflow - inflow == 0\n\nprob_spp.solve()\n\nprint('=== Solución LP (PuLP) ===')\nprint(f'Estado: {LpStatus[prob_spp.status]}')\nprint(f'Costo óptimo: {value(prob_spp.objective)}')\nprint()\nprint('Arcos activos (x &gt; 0):')\nfor (u, v), var in x.items():\n    if var.varValue and var.varValue &gt; 0.5:\n        print(f'  ({u} → {v}): x = {var.varValue}')\nprint()\nprint(f'Verificación: LP costo = {value(prob_spp.objective):.0f} '\n      f'coincide con Dijkstra costo = {dist[target]}')\n\n\n=== Solución LP (PuLP) ===\nEstado: Optimal\nCosto óptimo: 20.0\n\nArcos activos (x &gt; 0):\n  (1 → 4): x = 1.0\n  (4 → 5): x = 1.0\n  (5 → 6): x = 1.0\n\nVerificación: LP costo = 20 coincide con Dijkstra costo = 20"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#escalabilidad-de-dijkstra",
+    "href": "simulaciones_parte2.html#escalabilidad-de-dijkstra",
+    "title": "Implementación — Parte II",
+    "section": "Escalabilidad de Dijkstra",
+    "text": "Escalabilidad de Dijkstra\nGeneramos grafos aleatorios de diferentes tamaños para medir el rendimiento.\n\n\nCode\ndef generate_random_graph(n_nodes, density=0.3, max_weight=20, seed=42):\n    rng = np.random.default_rng(seed)\n    G = nx.DiGraph()\n    G.add_nodes_from(range(n_nodes))\n    for i in range(n_nodes - 1):\n        w = int(rng.integers(1, max_weight))\n        G.add_edge(i, i + 1, weight=w)\n    for i in range(n_nodes):\n        for j in range(n_nodes):\n            if i != j and not G.has_edge(i, j) and rng.random() &lt; density:\n                w = int(rng.integers(1, max_weight))\n                G.add_edge(i, j, weight=w)\n    return G\n\nsizes = [10, 50, 100, 200, 500, 1000, 2000]\ntimes_dijkstra = []\n\nfor n in sizes:\n    G_rand = generate_random_graph(n, density=0.1)\n    adj = {i: [] for i in range(n)}\n    for u, v, data in G_rand.edges(data=True):\n        adj[u].append((v, data['weight']))\n    start = time.perf_counter()\n    for _ in range(5):\n        dijkstra(adj, 0)\n    elapsed = (time.perf_counter() - start) / 5\n    times_dijkstra.append(elapsed)\n    print(f'n={n:5d}: {elapsed*1000:.2f} ms')\n\nfig_scale = go.Figure()\nfig_scale.add_trace(go.Scatter(\n    x=sizes, y=[t * 1000 for t in times_dijkstra],\n    mode='lines+markers', name='Dijkstra',\n    marker=dict(size=10), line=dict(width=2, color='#3498db')\n))\nfig_scale.update_layout(\n    title='Escalabilidad del Algoritmo de Dijkstra',\n    xaxis_title='Número de nodos', yaxis_title='Tiempo (ms)',\n    xaxis_type='log', yaxis_type='log',\n    width=700, height=450\n)\nfig_scale.show()\n\n\nn=   10: 0.03 ms\nn=   50: 0.13 ms\nn=  100: 0.62 ms\nn=  200: 2.95 ms\nn=  500: 17.16 ms\nn= 1000: 65.93 ms\nn= 2000: 306.21 ms\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#definición-1",
+    "href": "simulaciones_parte2.html#definición-1",
+    "title": "Implementación — Parte II",
+    "section": "Definición",
+    "text": "Definición\nDado un grafo completo \\(G = (V, E)\\) con \\(n\\) nodos y costos \\(c_{ij}\\), el TSP busca un circuito hamiltoniano de costo mínimo."
+  },
+  {
+    "objectID": "simulaciones_parte2.html#formulación-ilp-miller-tucker-zemlin",
+    "href": "simulaciones_parte2.html#formulación-ilp-miller-tucker-zemlin",
+    "title": "Implementación — Parte II",
+    "section": "Formulación ILP (Miller-Tucker-Zemlin)",
+    "text": "Formulación ILP (Miller-Tucker-Zemlin)\n\\[\\min \\sum_{i=1}^{n} \\sum_{\\substack{j=1 \\\\ j \\neq i}}^{n} c_{ij} \\, x_{ij}\\]\nsujeto a:\n\\[\\sum_{\\substack{j=1 \\\\ j \\neq i}}^{n} x_{ij} = 1 \\quad \\forall i \\qquad \\sum_{\\substack{i=1 \\\\ i \\neq j}}^{n} x_{ij} = 1 \\quad \\forall j\\]\n\\[u_i - u_j + n \\cdot x_{ij} \\leq n - 1 \\quad \\forall i, j = 2, \\ldots, n,\\; i \\neq j\\]\n\\[1 \\leq u_i \\leq n - 1 \\quad \\forall i = 2, \\ldots, n \\qquad x_{ij} \\in \\{0, 1\\}\\]\nA diferencia del SPP, aquí las variables binarias son necesarias porque la matriz no es totalmente unimodular."
+  },
+  {
+    "objectID": "simulaciones_parte2.html#ejemplo-tsp-de-5-ciudades",
+    "href": "simulaciones_parte2.html#ejemplo-tsp-de-5-ciudades",
+    "title": "Implementación — Parte II",
+    "section": "Ejemplo: TSP de 5 ciudades",
+    "text": "Ejemplo: TSP de 5 ciudades\n\n\nCode\ncities = ['A', 'B', 'C', 'D', 'E']\nn_cities = len(cities)\ndist_matrix = np.array([\n    [ 0, 10, 15, 20,  6],\n    [10,  0,  8, 18, 12],\n    [15,  8,  0,  7, 14],\n    [20, 18,  7,  0, 12],\n    [ 6, 12, 14, 12,  0]\n])\n\ndf_dist = pd.DataFrame(dist_matrix, index=cities, columns=cities)\nprint('Matriz de distancias:')\ndisplay(df_dist)\n\nfig_heat = px.imshow(\n    dist_matrix, x=cities, y=cities,\n    text_auto=True, color_continuous_scale='Blues',\n    title='Matriz de Distancias entre Ciudades'\n)\nfig_heat.update_layout(width=500, height=450)\nfig_heat.show()\n\n\nMatriz de distancias:\n\n\n\n\n\n\n\n\n\nA\nB\nC\nD\nE\n\n\n\n\nA\n0\n10\n15\n20\n6\n\n\nB\n10\n0\n8\n18\n12\n\n\nC\n15\n8\n0\n7\n14\n\n\nD\n20\n18\n7\n0\n12\n\n\nE\n6\n12\n14\n12\n0\n\n\n\n\n\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#solución-exacta-formulación-mtz-con-pulp",
+    "href": "simulaciones_parte2.html#solución-exacta-formulación-mtz-con-pulp",
+    "title": "Implementación — Parte II",
+    "section": "Solución exacta — Formulación MTZ con PuLP",
+    "text": "Solución exacta — Formulación MTZ con PuLP\n\n\nCode\ndef solve_tsp_mtz(dist_matrix, city_names=None):\n    n = len(dist_matrix)\n    if city_names is None:\n        city_names = list(range(n))\n\n    prob = LpProblem('TSP_MTZ', LpMinimize)\n    x = {}\n    for i in range(n):\n        for j in range(n):\n            if i != j:\n                x[(i, j)] = LpVariable(f'x_{i}_{j}', cat=LpBinary)\n\n    u = {}\n    for i in range(1, n):\n        u[i] = LpVariable(f'u_{i}', lowBound=1, upBound=n-1, cat=LpContinuous)\n\n    prob += lpSum(dist_matrix[i][j] * x[(i, j)]\n                  for i in range(n) for j in range(n) if i != j)\n\n    for i in range(n):\n        prob += lpSum(x[(i, j)] for j in range(n) if j != i) == 1\n        prob += lpSum(x[(j, i)] for j in range(n) if j != i) == 1\n\n    for i in range(1, n):\n        for j in range(1, n):\n            if i != j:\n                prob += u[i] - u[j] + n * x[(i, j)] &lt;= n - 1\n\n    prob.solve()\n\n    if prob.status != 1:\n        return None, None, LpStatus[prob.status]\n\n    tour = [0]\n    current = 0\n    for _ in range(n - 1):\n        for j in range(n):\n            if j != current and (current, j) in x and x[(current, j)].varValue &gt; 0.5:\n                tour.append(j)\n                current = j\n                break\n    tour.append(0)\n\n    cost = value(prob.objective)\n    return tour, cost, LpStatus[prob.status]\n\n\ntour_opt, cost_opt, status = solve_tsp_mtz(dist_matrix, cities)\n\nprint('=== Solución Exacta (MTZ con PuLP) ===')\nprint(f'Estado: {status}')\ntour_names = [cities[i] for i in tour_opt]\nprint(f'Tour óptimo: {\" → \".join(tour_names)}')\nprint(f'Costo total: {cost_opt}')\n\n\n=== Solución Exacta (MTZ con PuLP) ===\nEstado: Optimal\nTour óptimo: A → B → C → D → E → A\nCosto total: 43.0\n\n\n\n\nCode\ncity_pos = {\n    'A': (0, 1.5), 'B': (1.5, 2.5), 'C': (3, 1.5),\n    'D': (2.5, 0), 'E': (0.5, 0)\n}\n\nG_tsp = nx.complete_graph(cities)\nfor i, c1 in enumerate(cities):\n    for j, c2 in enumerate(cities):\n        if i &lt; j:\n            G_tsp[c1][c2]['weight'] = dist_matrix[i][j]\n\nfig_tour = plot_graph(\n    G_tsp, city_pos,\n    title=f'Tour Óptimo TSP: {\" → \".join(tour_names)} (costo = {int(cost_opt)})',\n    path=tour_names, path_color='#e74c3c', node_color='#3498db'\n)\nfig_tour.show()\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#verificación-por-enumeración-exhaustiva",
+    "href": "simulaciones_parte2.html#verificación-por-enumeración-exhaustiva",
+    "title": "Implementación — Parte II",
+    "section": "Verificación por enumeración exhaustiva",
+    "text": "Verificación por enumeración exhaustiva\nCon 5 ciudades hay \\((5-1)!/2 = 12\\) tours distintos. Evaluamos todos para confirmar el óptimo.\n\n\nCode\ndef tour_cost(tour, dist_mat):\n    return sum(dist_mat[tour[i]][tour[i+1]] for i in range(len(tour)-1))\n\nall_tours = [[0]+list(p)+[0] for p in itertools.permutations(range(1, n_cities))]\ntour_costs = sorted([(tour_cost(t, dist_matrix), t) for t in all_tours])\n\nprint(f'Total de tours: {len(all_tours)}')\nprint(f'Tours únicos (simétrico): {len(all_tours) // 2}\\n')\nprint('Todos los tours ordenados por costo:')\nprint('-' * 55)\nfor cost, tour in tour_costs:\n    names = ' → '.join(cities[i] for i in tour)\n    marker = ' ← ÓPTIMO' if cost == tour_costs[0][0] else ''\n    print(f'  {names}: costo = {cost}{marker}')\n\nfig_hist = go.Figure()\nfig_hist.add_trace(go.Histogram(\n    x=[c for c, _ in tour_costs], nbinsx=10,\n    marker_color='#3498db', marker_line=dict(width=1, color='black')\n))\nfig_hist.add_vline(x=tour_costs[0][0], line_dash='dash', line_color='red',\n                   annotation_text=f'Óptimo = {tour_costs[0][0]}')\nfig_hist.update_layout(\n    title='Distribución de Costos de Tours',\n    xaxis_title='Costo del tour', yaxis_title='Frecuencia',\n    width=600, height=400\n)\nfig_hist.show()\n\n\nTotal de tours: 24\nTours únicos (simétrico): 12\n\nTodos los tours ordenados por costo:\n-------------------------------------------------------\n  A → B → C → D → E → A: costo = 43 ← ÓPTIMO\n  A → E → D → C → B → A: costo = 43 ← ÓPTIMO\n  A → D → C → B → E → A: costo = 53\n  A → E → B → C → D → A: costo = 53\n  A → B → D → C → E → A: costo = 55\n  A → E → C → D → B → A: costo = 55\n  A → B → E → D → C → A: costo = 56\n  A → C → D → E → B → A: costo = 56\n  A → C → D → B → E → A: costo = 58\n  A → E → B → D → C → A: costo = 58\n  A → C → B → D → E → A: costo = 59\n  A → E → D → B → C → A: costo = 59\n  A → B → E → C → D → A: costo = 63\n  A → D → C → E → B → A: costo = 63\n  A → B → C → E → D → A: costo = 64\n  A → D → E → C → B → A: costo = 64\n  A → D → B → C → E → A: costo = 66\n  A → E → C → B → D → A: costo = 66\n  A → C → B → E → D → A: costo = 67\n  A → D → E → B → C → A: costo = 67\n  A → B → D → E → C → A: costo = 69\n  A → C → E → D → B → A: costo = 69\n  A → C → E → B → D → A: costo = 79\n  A → D → B → E → C → A: costo = 79\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#heurísticas-vecino-más-cercano-y-2-opt",
+    "href": "simulaciones_parte2.html#heurísticas-vecino-más-cercano-y-2-opt",
+    "title": "Implementación — Parte II",
+    "section": "Heurísticas: Vecino más cercano y 2-opt",
+    "text": "Heurísticas: Vecino más cercano y 2-opt\n\n\nCode\ndef nearest_neighbor_tsp(dist_matrix, start=0):\n    n = len(dist_matrix)\n    visited = {start}; tour = [start]; current = start; total_cost = 0\n    while len(visited) &lt; n:\n        nearest = min((j for j in range(n) if j not in visited),\n                      key=lambda j: dist_matrix[current][j])\n        total_cost += dist_matrix[current][nearest]\n        visited.add(nearest); tour.append(nearest); current = nearest\n    total_cost += dist_matrix[current][start]\n    tour.append(start)\n    return tour, total_cost\n\n\ndef two_opt(tour, dist_matrix):\n    n = len(tour) - 1; improved = True; best = list(tour)\n    history = [tour_cost(best, dist_matrix)]\n    while improved:\n        improved = False\n        for i in range(1, n - 1):\n            for j in range(i + 1, n):\n                new = best[:i] + best[i:j+1][::-1] + best[j+1:]\n                if tour_cost(new, dist_matrix) &lt; tour_cost(best, dist_matrix):\n                    best = new; improved = True\n                    history.append(tour_cost(best, dist_matrix))\n    return best, tour_cost(best, dist_matrix), history\n\n\ntour_nn, cost_nn = nearest_neighbor_tsp(dist_matrix)\ntour_2opt, cost_2opt, hist_2opt = two_opt(tour_nn, dist_matrix)\n\nprint('=== Heurísticas ===')\nprint(f'Vecino más cercano: {\" → \".join(cities[i] for i in tour_nn)} = {cost_nn}')\nprint(f'Después de 2-opt:   {\" → \".join(cities[i] for i in tour_2opt)} = {cost_2opt}')\nprint(f'Óptimo exacto:      {int(cost_opt)}')\nprint(f'Gap NN: {(cost_nn-cost_opt)/cost_opt*100:.1f}% | Gap 2-opt: {(cost_2opt-cost_opt)/cost_opt*100:.1f}%')\n\n\n=== Heurísticas ===\nVecino más cercano: A → E → B → C → D → A = 53\nDespués de 2-opt:   A → E → D → C → B → A = 43\nÓptimo exacto:      43\nGap NN: 23.3% | Gap 2-opt: 0.0%"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#tsp-con-ciudades-aleatorias-10-ciudades",
+    "href": "simulaciones_parte2.html#tsp-con-ciudades-aleatorias-10-ciudades",
+    "title": "Implementación — Parte II",
+    "section": "TSP con ciudades aleatorias (10 ciudades)",
+    "text": "TSP con ciudades aleatorias (10 ciudades)\n\n\nCode\ndef generate_tsp_instance(n, seed=42):\n    rng = np.random.default_rng(seed)\n    coords = rng.random((n, 2)) * 100\n    dist_mat = np.zeros((n, n))\n    for i in range(n):\n        for j in range(n):\n            dist_mat[i][j] = np.sqrt(\n                (coords[i][0]-coords[j][0])**2 + (coords[i][1]-coords[j][1])**2)\n    return coords, dist_mat\n\n\ndef plot_tsp_tour(coords, tour, title='Tour TSP', color='#e74c3c'):\n    fig = go.Figure()\n    x_e, y_e = [], []\n    for i in range(len(tour)-1):\n        x_e.extend([coords[tour[i]][0], coords[tour[i+1]][0], None])\n        y_e.extend([coords[tour[i]][1], coords[tour[i+1]][1], None])\n    fig.add_trace(go.Scatter(x=x_e, y=y_e, mode='lines',\n                             line=dict(color=color, width=2), showlegend=False))\n    fig.add_trace(go.Scatter(\n        x=coords[:,0], y=coords[:,1], mode='markers+text',\n        text=[str(i) for i in range(len(coords))], textposition='top center',\n        marker=dict(size=12, color='#3498db', line=dict(width=1, color='black')),\n        showlegend=False))\n    cost = sum(np.sqrt((coords[tour[i]][0]-coords[tour[i+1]][0])**2+\n                       (coords[tour[i]][1]-coords[tour[i+1]][1])**2)\n              for i in range(len(tour)-1))\n    fig.update_layout(title=f'{title} (costo = {cost:.1f})',\n                      xaxis_title='X', yaxis_title='Y',\n                      width=600, height=500, plot_bgcolor='white')\n    return fig\n\ncoords_10, dist_10 = generate_tsp_instance(10, seed=123)\ntour_exact, cost_exact, _ = solve_tsp_mtz(dist_10)\ntour_nn10, cost_nn10 = nearest_neighbor_tsp(dist_10)\ntour_2opt10, cost_2opt10, _ = two_opt(tour_nn10, dist_10)\n\nprint(f'Exacto (10 ciudades): {cost_exact:.2f}')\nprint(f'Vecino más cercano:   {cost_nn10:.2f} (gap: {(cost_nn10-cost_exact)/cost_exact*100:.1f}%)')\nprint(f'NN + 2-opt:           {cost_2opt10:.2f} (gap: {(cost_2opt10-cost_exact)/cost_exact*100:.1f}%)')\n\nfig_exact = plot_tsp_tour(coords_10, tour_exact, 'Solución Exacta (MTZ)', '#e74c3c')\nfig_exact.show()\n\nfig_nn = plot_tsp_tour(coords_10, tour_nn10, 'Vecino Más Cercano', '#f39c12')\nfig_nn.show()\n\n\nExacto (10 ciudades): 286.44\nVecino más cercano:   286.44 (gap: 0.0%)\nNN + 2-opt:           286.44 (gap: 0.0%)\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#comparación-de-escalabilidad-exacto-vs.-heurísticas",
+    "href": "simulaciones_parte2.html#comparación-de-escalabilidad-exacto-vs.-heurísticas",
+    "title": "Implementación — Parte II",
+    "section": "Comparación de escalabilidad: Exacto vs. Heurísticas",
+    "text": "Comparación de escalabilidad: Exacto vs. Heurísticas\n\n\nCode\ntsp_sizes = [5, 8, 10, 12, 15]\ntimes_exact = []; times_nn_l = []; times_2opt_l = []\ncosts_exact_l = []; costs_nn_l = []; costs_2opt_l = []\n\nfor n in tsp_sizes:\n    coords, dm = generate_tsp_instance(n, seed=42)\n\n    t0 = time.perf_counter()\n    tour_e, cost_e, _ = solve_tsp_mtz(dm)\n    times_exact.append(time.perf_counter() - t0)\n    costs_exact_l.append(cost_e)\n\n    t0 = time.perf_counter()\n    tour_h, cost_h = nearest_neighbor_tsp(dm)\n    times_nn_l.append(time.perf_counter() - t0)\n    costs_nn_l.append(cost_h)\n\n    t0 = time.perf_counter()\n    tour_2, cost_2, _ = two_opt(tour_h, dm)\n    times_2opt_l.append(time.perf_counter() - t0)\n    costs_2opt_l.append(cost_2)\n\n    gap_nn = (cost_h - cost_e) / cost_e * 100\n    gap_2opt = (cost_2 - cost_e) / cost_e * 100\n    print(f'n={n:3d} | Exacto: {cost_e:.1f} ({times_exact[-1]:.3f}s) | '\n          f'NN: {cost_h:.1f} ({gap_nn:+.1f}%) | '\n          f'2-opt: {cost_2:.1f} ({gap_2opt:+.1f}%)')\n\nfig_times = go.Figure()\nfig_times.add_trace(go.Scatter(x=tsp_sizes, y=times_exact, mode='lines+markers',\n    name='Exacto (MTZ)', line=dict(color='#e74c3c', width=2)))\nfig_times.add_trace(go.Scatter(x=tsp_sizes, y=times_nn_l, mode='lines+markers',\n    name='Vecino más cercano', line=dict(color='#f39c12', width=2)))\nfig_times.add_trace(go.Scatter(x=tsp_sizes, y=times_2opt_l, mode='lines+markers',\n    name='NN + 2-opt', line=dict(color='#2ecc71', width=2)))\nfig_times.update_layout(\n    title='Tiempo de Ejecución por Método (TSP)',\n    xaxis_title='Número de ciudades', yaxis_title='Tiempo (s)',\n    yaxis_type='log', width=700, height=450)\nfig_times.show()\n\ngaps_nn = [(cn-ce)/ce*100 for cn,ce in zip(costs_nn_l, costs_exact_l)]\ngaps_2opt = [(c2-ce)/ce*100 for c2,ce in zip(costs_2opt_l, costs_exact_l)]\nfig_q = go.Figure()\nfig_q.add_trace(go.Bar(x=[str(s) for s in tsp_sizes], y=gaps_nn,\n    name='Vecino más cercano', marker_color='#f39c12'))\nfig_q.add_trace(go.Bar(x=[str(s) for s in tsp_sizes], y=gaps_2opt,\n    name='NN + 2-opt', marker_color='#2ecc71'))\nfig_q.update_layout(\n    title='Gap de Optimalidad (% sobre el óptimo)',\n    xaxis_title='Ciudades', yaxis_title='Gap (%)',\n    barmode='group', width=700, height=400)\nfig_q.show()\n\n\nn=  5 | Exacto: 226.9 (0.046s) | NN: 226.9 (+0.0%) | 2-opt: 226.9 (+0.0%)\nn=  8 | Exacto: 240.5 (0.111s) | NN: 240.5 (+0.0%) | 2-opt: 240.5 (+0.0%)\nn= 10 | Exacto: 264.5 (0.178s) | NN: 264.5 (+0.0%) | 2-opt: 264.5 (+0.0%)\nn= 12 | Exacto: 298.1 (0.344s) | NN: 380.5 (+27.7%) | 2-opt: 298.1 (+0.0%)\nn= 15 | Exacto: 313.0 (0.272s) | NN: 339.4 (+8.4%) | 2-opt: 313.0 (-0.0%)\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json\n\n\nUnable to display output for mime type(s): application/vnd.plotly.v1+json"
+  },
+  {
+    "objectID": "simulaciones_parte2.html#conclusiones",
+    "href": "simulaciones_parte2.html#conclusiones",
+    "title": "Implementación — Parte II",
+    "section": "Conclusiones",
+    "text": "Conclusiones\n\n\n\n\n\n\n\n\nAspecto\nRuta Más Corta (SPP)\nAgente Viajero (TSP)\n\n\n\n\nObjetivo\nCamino s→t mínimo\nCircuito hamiltoniano mínimo\n\n\nFormulación\nLP (continuo)\nILP (binario)\n\n\nIntegralidad\nAutomática (unimod. total)\nVariables binarias necesarias\n\n\nComplejidad\nP: O((V+E) log V)\nNP-difícil: O(n²·2ⁿ)\n\n\nAlgoritmo\nDijkstra, Bellman-Ford\nBranch-and-Cut, heurísticas\n\n\nEscalabilidad\nMillones de nodos\nMiles de nodos\n\n\n\nLa diferencia fundamental es la complejidad estructural: el SPP aprovecha la subestructura óptima, mientras el TSP impone una dependencia global que impide descomposición eficiente."
+  },
+  {
+    "objectID": "presentacion_parte1.html#agenda",
+    "href": "presentacion_parte1.html#agenda",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Agenda",
+    "text": "Agenda\n\nContexto — Tesis doctoral y sistemas conversacionales\nProblema — Selección de preguntas bajo restricciones\nFormulación — Modelo LP y extensión ILP\nImplementación — Python: scipy + PuLP\nResultados — Solución óptima y comparación\nSensibilidad — Variación de parámetros críticos"
+  },
+  {
+    "objectID": "presentacion_parte1.html#marco-de-la-investigación-doctoral",
+    "href": "presentacion_parte1.html#marco-de-la-investigación-doctoral",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Marco de la investigación doctoral",
+    "text": "Marco de la investigación doctoral\n\n\nTesis: Agentic Conversational User Modeling Framework for Question Recommendation\n\nFramework basado en agentes de IA para recomendación de preguntas\nLos LLM generan múltiples preguntas candidatas\nDemasiadas preguntas \\(\\Rightarrow\\) sobrecarga cognitiva\nNecesidad de selección óptima\n\n\n\n\n\nDesafío central\n\n\nSeleccionar un subconjunto limitado de preguntas que maximice la relevancia y la ganancia de información, respetando restricciones de:\n\nCarga cognitiva\nLatencia de respuesta\nDiversidad de categorías"
+  },
+  {
+    "objectID": "presentacion_parte1.html#sistemas-conversacionales-de-recomendación",
+    "href": "presentacion_parte1.html#sistemas-conversacionales-de-recomendación",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Sistemas conversacionales de recomendación",
+    "text": "Sistemas conversacionales de recomendación\n\n\nLos CRS (Conversational Recommender Systems) interactúan dinámicamente con usuarios mediante preguntas y respuestas [1].\n\nProblema concreto:\nUn chatbot debe presentar como máximo 4 preguntas de entre 9 candidatas al inicio de la conversación."
+  },
+  {
+    "objectID": "presentacion_parte1.html#preguntas-candidatas",
+    "href": "presentacion_parte1.html#preguntas-candidatas",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Preguntas candidatas",
+    "text": "Preguntas candidatas\nLas 9 preguntas se clasifican en 3 categorías:\n\n\n\n\n\n\n\n\n\n\nClarificación (\\(C\\))\nPreferencias (\\(P\\))\nObjetivos (\\(O\\))\n\n\n\n\n\nPrecisan el contenido\nPersonalizan la exploración\nProfundizan el conocimiento\n\n\nPreguntas\n\\(Q_1, Q_2, Q_3\\)\n\\(Q_4, Q_5, Q_6\\)\n\\(Q_7, Q_8, Q_9\\)\n\n\n\n\nCada pregunta \\(i\\) tiene 4 indicadores: relevancia \\(r_i\\), ganancia de información \\(g_i\\), carga cognitiva \\(a_i\\), latencia \\(\\ell_i\\)."
+  },
+  {
+    "objectID": "presentacion_parte1.html#parámetros-del-modelo",
+    "href": "presentacion_parte1.html#parámetros-del-modelo",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Parámetros del modelo",
+    "text": "Parámetros del modelo\n\n\n\n\n\n\n\n\n\n\n\\[u_i = 0{,}55\\,r_i + 0{,}45\\,g_i - 0{,}08\\,a_i\\]"
+  },
+  {
+    "objectID": "presentacion_parte1.html#restricciones-del-sistema",
+    "href": "presentacion_parte1.html#restricciones-del-sistema",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Restricciones del sistema",
+    "text": "Restricciones del sistema\n\n\n\n\n\nParámetro\nValor\n\n\n\n\nMáximo de preguntas (\\(M\\))\n4\n\n\nPresupuesto carga cognitiva (\\(B\\))\n4,70\n\n\nPresupuesto latencia (\\(L\\))\n2,80\n\n\nCobertura mínima/categoría (\\(m_k\\))\n0,70\n\n\n\n\n\n\n\nDecisiones\n\n\n\nVariables: \\(x_i \\in [0,1]\\) o \\(y_i \\in \\{0,1\\}\\)\nObjetivo: Maximizar utilidad total\nRestricciones: Capacidad + cobertura"
+  },
+  {
+    "objectID": "presentacion_parte1.html#modelo-continuo-programa-lineal",
+    "href": "presentacion_parte1.html#modelo-continuo-programa-lineal",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Modelo continuo — Programa Lineal",
+    "text": "Modelo continuo — Programa Lineal\nFunción objetivo: \\[\\max\\; Z = \\sum_{i=1}^{9} u_i \\, x_i = \\sum_{i=1}^{9} \\bigl(0{,}55\\,r_i + 0{,}45\\,g_i - 0{,}08\\,a_i\\bigr)\\,x_i\\]\n\nRestricciones:\n\\[\\sum_{i=1}^{9} x_i \\leq 4 \\quad \\text{(máximo de preguntas)}\\]\n\\[\\sum_{i=1}^{9} a_i\\,x_i \\leq 4{,}70 \\quad \\text{(carga cognitiva)}\\]\n\\[\\sum_{i=1}^{9} \\ell_i\\,x_i \\leq 2{,}80 \\quad \\text{(latencia)}\\]"
+  },
+  {
+    "objectID": "presentacion_parte1.html#restricciones-de-cobertura-y-dominio",
+    "href": "presentacion_parte1.html#restricciones-de-cobertura-y-dominio",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Restricciones de cobertura y dominio",
+    "text": "Restricciones de cobertura y dominio\nCobertura mínima por categoría:\n\\[\\sum_{i \\in I_k} x_i \\geq 0{,}70 \\qquad \\forall\\, k \\in \\{C, P, O\\}\\]\n\nDominio: \\[0 \\leq x_i \\leq 1 \\qquad \\forall\\, i \\in I\\]\n\n\n\nPropiedad clave\n\n\nEl modelo es completamente lineal: función objetivo y restricciones son lineales en \\(x_i\\). Se resuelve de forma exacta con el método Simplex o HiGHS."
+  },
+  {
+    "objectID": "presentacion_parte1.html#extensión-binaria-ilp",
+    "href": "presentacion_parte1.html#extensión-binaria-ilp",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Extensión binaria — ILP",
+    "text": "Extensión binaria — ILP\nPara seleccionar preguntas concretas (sí/no), se introduce:\n\\[y_i \\in \\{0, 1\\}, \\quad y_i = \\begin{cases} 1 & \\text{si se recomienda } Q_i \\\\ 0 & \\text{en caso contrario} \\end{cases}\\]\n\nSe sustituye \\(x_i \\to y_i\\) en todas las ecuaciones.\n\n\nLP (relajación)\n\n\\(x_i \\in [0,1]\\) continuo\nCota superior de \\(Z\\)\nscipy.optimize.linprog\n\n\nILP (binario)\n\n\\(y_i \\in \\{0,1\\}\\) entero\nSolución implementable\nPuLP + CBC solver"
+  },
+  {
+    "objectID": "presentacion_parte1.html#datos-y-utilidades",
+    "href": "presentacion_parte1.html#datos-y-utilidades",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Datos y utilidades",
+    "text": "Datos y utilidades\n\nimport numpy as np\n\nr = np.array([0.90, 0.80, 0.72, 0.89, 0.80, 0.70, 0.92, 0.77, 0.75])\ng = np.array([0.90, 0.72, 0.78, 0.84, 0.76, 0.67, 0.88, 0.80, 0.68])\na = np.array([1.60, 1.10, 0.95, 1.40, 1.10, 0.85, 1.70, 1.20, 0.85])\n\npreguntas = ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9']\ncategorias = ['Clarif.','Clarif.','Clarif.',\n              'Prefer.','Prefer.','Prefer.',\n              'Objeti.','Objeti.','Objeti.']\n\n# Función de utilidad\nu = 0.55 * r + 0.45 * g - 0.08 * a\nfor i in range(9):\n    print(f'{preguntas[i]} ({categorias[i]}): u = {u[i]:.4f}')\n\nQ1 (Clarif.): u = 0.7720\nQ2 (Clarif.): u = 0.6760\nQ3 (Clarif.): u = 0.6710\nQ4 (Prefer.): u = 0.7555\nQ5 (Prefer.): u = 0.6940\nQ6 (Prefer.): u = 0.6185\nQ7 (Objeti.): u = 0.7660\nQ8 (Objeti.): u = 0.6875\nQ9 (Objeti.): u = 0.6505"
+  },
+  {
+    "objectID": "presentacion_parte1.html#solución-lp-con-scipy.optimize.linprog",
+    "href": "presentacion_parte1.html#solución-lp-con-scipy.optimize.linprog",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Solución LP con scipy.optimize.linprog",
+    "text": "Solución LP con scipy.optimize.linprog\n\nfrom scipy.optimize import linprog\nn, l_vec = 9, np.array([0.75,0.55,0.70,0.80,0.45,0.40,1.00,0.65,0.50])\n\nA_ub = [np.ones(n), a, l_vec,\n        np.array([-1,-1,-1,0,0,0,0,0,0]),\n        np.array([0,0,0,-1,-1,-1,0,0,0]),\n        np.array([0,0,0,0,0,0,-1,-1,-1])]\nb_ub = [4, 4.70, 2.80, -0.70, -0.70, -0.70]\n\nres_lp = linprog(-u, A_ub=A_ub, b_ub=b_ub,\n                 bounds=[(0,1)]*n, method='highs')\n\nprint(f'Utilidad óptima LP: Z* = {-res_lp.fun:.4f}')\nfor i in range(n):\n    if res_lp.x[i] &gt; 0.001:\n        print(f'  {preguntas[i]}: x = {res_lp.x[i]:.4f}')\n\nUtilidad óptima LP: Z* = 2.8348\n  Q1: x = 0.6500\n  Q3: x = 1.0000\n  Q4: x = 1.0000\n  Q5: x = 0.6500\n  Q9: x = 0.7000"
+  },
+  {
+    "objectID": "presentacion_parte1.html#solución-ilp-con-pulp",
+    "href": "presentacion_parte1.html#solución-ilp-con-pulp",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Solución ILP con PuLP",
+    "text": "Solución ILP con PuLP\n\nfrom pulp import (LpMaximize, LpProblem, LpVariable,\n                  lpSum, value, LpBinary)\n\nprob = LpProblem('Seleccion', LpMaximize)\ny = [LpVariable(f'y_{i+1}', cat=LpBinary) for i in range(n)]\n\nprob += lpSum(u[i]*y[i] for i in range(n))\nprob += lpSum(y[i] for i in range(n)) &lt;= 4\nprob += lpSum(a[i]*y[i] for i in range(n)) &lt;= 4.70\nprob += lpSum(l_vec[i]*y[i] for i in range(n)) &lt;= 2.80\nprob += lpSum(y[i] for i in range(3)) &gt;= 0.70\nprob += lpSum(y[i] for i in range(3,6)) &gt;= 0.70\nprob += lpSum(y[i] for i in range(6,9)) &gt;= 0.70\n\nprob.solve()\nsel = [i for i in range(n) if int(value(y[i])) == 1]\nprint(f'Utilidad óptima ILP: Z* = {value(prob.objective):.4f}')\nprint(f'Seleccionadas: {[preguntas[i] for i in sel]}')\nprint(f'Carga: {sum(a[i] for i in sel):.2f}/4.70')\nprint(f'Latencia: {sum(l_vec[i] for i in sel):.2f}/2.80')\n\nUtilidad óptima ILP: Z* = 2.8080\nSeleccionadas: ['Q3', 'Q4', 'Q5', 'Q8']\nCarga: 4.65/4.70\nLatencia: 2.60/2.80"
+  },
+  {
+    "objectID": "presentacion_parte1.html#utilidad-por-pregunta-solución-ilp",
+    "href": "presentacion_parte1.html#utilidad-por-pregunta-solución-ilp",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Utilidad por pregunta — Solución ILP",
+    "text": "Utilidad por pregunta — Solución ILP\n\n\nCode\nimport matplotlib.pyplot as plt\n\ncolores_cat = {'Clarif.': '#4fc3f7', 'Prefer.': '#ffb74d', 'Objeti.': '#81c784'}\ncolores = [colores_cat[c] for c in categorias]\nbordes = ['#e94560' if i in sel else '#ffffff00' for i in range(n)]\nanchos = [3.5 if i in sel else 0 for i in range(n)]\n\nfig, ax = plt.subplots(figsize=(11, 4.5))\nbars = ax.bar(preguntas, u, color=colores, edgecolor=bordes,\n              linewidth=anchos, zorder=3)\n\nfor i in sel:\n    ax.annotate('SEL', (i, u[i]), textcoords='offset points',\n                xytext=(0, 8), ha='center', fontsize=9,\n                fontweight='bold', color='#e94560')\n\nfrom matplotlib.patches import Patch\nleg = [Patch(facecolor=c, label=k) for k, c in colores_cat.items()]\nleg.append(Patch(facecolor='white', edgecolor='#e94560',\n                 linewidth=2.5, label='Seleccionada'))\nax.legend(handles=leg, loc='upper right', fontsize=9)\n\nax.set_ylabel('Utilidad $u_i$', fontsize=11)\nax.set_ylim(0, max(u)*1.18)\nax.set_facecolor('#1a1a2e')\nfig.set_facecolor('#1a1a2e')\nax.tick_params(colors='white')\nax.yaxis.label.set_color('white')\nax.xaxis.label.set_color('white')\nfor spine in ax.spines.values():\n    spine.set_color('#333')\nax.grid(axis='y', alpha=0.15, color='white')\nplt.tight_layout()\nplt.show()"
+  },
+  {
+    "objectID": "presentacion_parte1.html#comparación-lp-vs-ilp",
+    "href": "presentacion_parte1.html#comparación-lp-vs-ilp",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Comparación LP vs ILP",
+    "text": "Comparación LP vs ILP\n\n\nCode\nfig, axes = plt.subplots(1, 2, figsize=(12, 4.5))\n\nfor ax_i in axes:\n    ax_i.set_facecolor('#1a1a2e')\n    ax_i.tick_params(colors='white')\n    ax_i.yaxis.label.set_color('white')\n    for spine in ax_i.spines.values():\n        spine.set_color('#333')\n    ax_i.grid(axis='y', alpha=0.15, color='white')\n\naxes[0].bar(preguntas, res_lp.x, color=colores, alpha=0.85)\naxes[0].set_ylabel('$x_i$ (proporción)')\naxes[0].set_title(f'LP continuo — Z* = {-res_lp.fun:.4f}',\n                   color='white', fontsize=12)\naxes[0].set_ylim(0, 1.15)\naxes[0].axhline(y=1, color='gray', linestyle='--', alpha=0.3)\n\ny_vals = [int(value(y[i])) for i in range(n)]\naxes[1].bar(preguntas, y_vals, color=colores, alpha=0.85)\naxes[1].set_ylabel('$y_i$ (0 o 1)')\naxes[1].set_title(f'ILP binario — Z* = {value(prob.objective):.4f}',\n                   color='white', fontsize=12)\naxes[1].set_ylim(0, 1.15)\n\nfig.set_facecolor('#1a1a2e')\nbrecha = -res_lp.fun - value(prob.objective)\nfig.suptitle(f'Brecha de integralidad: {brecha:.4f}',\n             color='#e94560', fontsize=11, y=0.02)\nplt.tight_layout()\nplt.show()"
+  },
+  {
+    "objectID": "presentacion_parte1.html#uso-de-recursos",
+    "href": "presentacion_parte1.html#uso-de-recursos",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Uso de recursos",
+    "text": "Uso de recursos\n\n\nCode\nfig, ax = plt.subplots(figsize=(9, 4.5))\nax.set_facecolor('#1a1a2e')\nfig.set_facecolor('#1a1a2e')\n\nrecursos = ['Preguntas\\n(M=4)', 'Carga cognitiva\\n(B=4.70)', 'Latencia\\n(L=2.80)']\nusados = [len(sel), sum(a[i] for i in sel), sum(l_vec[i] for i in sel)]\npresupuestos = [4, 4.70, 2.80]\npct = [us/pr*100 for us, pr in zip(usados, presupuestos)]\n\nx_pos = np.arange(len(recursos))\nwidth = 0.35\n\nbars1 = ax.bar(x_pos - width/2, usados, width, label='Utilizado',\n               color='#e94560', zorder=3)\nbars2 = ax.bar(x_pos + width/2, presupuestos, width, label='Presupuesto',\n               color='#0f3460', edgecolor='#4fc3f7', linewidth=2, zorder=3)\n\nfor i, (us_val, pr) in enumerate(zip(usados, presupuestos)):\n    holgura = pr - us_val\n    ax.annotate(f'{us_val:.2f}/{pr:.2f}\\n({pct[i]:.0f}%)',\n                (i, max(us_val, pr)), textcoords='offset points',\n                xytext=(0, 10), ha='center', fontsize=9, color='white')\n\nax.set_xticks(x_pos)\nax.set_xticklabels(recursos, color='white')\nax.tick_params(colors='white')\nfor spine in ax.spines.values():\n    spine.set_color('#333')\nax.legend(fontsize=10, loc='upper right')\nax.grid(axis='y', alpha=0.15, color='white')\nplt.tight_layout()\nplt.show()"
+  },
+  {
+    "objectID": "presentacion_parte1.html#solución-óptima-resumen",
+    "href": "presentacion_parte1.html#solución-óptima-resumen",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Solución óptima — Resumen",
+    "text": "Solución óptima — Resumen\n\n\n\n\n\nModelo\n\\(Z^*\\)\n\n\n\n\nLP (continuo)\n2,8348\n\n\nILP (binario)\n2,8080\n\n\nBrecha\n0,0268\n\n\n\n\nPreguntas seleccionadas:\n\n\n\n\nPregunta\nCategoría\n\\(u_i\\)\n\n\n\n\n✓\n\\(Q_3\\)\nClarificación\n0,671\n\n\n✓\n\\(Q_4\\)\nPreferencias\n0,756\n\n\n✓\n\\(Q_5\\)\nPreferencias\n0,694\n\n\n✓\n\\(Q_8\\)\nObjetivos\n0,688\n\n\n\n\n\n\n\n\n\nObservación clave\n\n\n\\(Q_1\\) y \\(Q_7\\) tienen las mayores utilidades individuales, pero su alta carga cognitiva y latencia las excluyen de la solución factible.\nLa optimización selecciona preguntas que balancean utilidad con consumo de recursos."
+  },
+  {
+    "objectID": "presentacion_parte1.html#variación-de-parámetros",
+    "href": "presentacion_parte1.html#variación-de-parámetros",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Variación de parámetros",
+    "text": "Variación de parámetros\n\n\nCode\nfrom pulp import PULP_CBC_CMD\n\ndef resolver_ilp(M_v, B_v, L_v):\n    p = LpProblem('S', LpMaximize)\n    yv = [LpVariable(f's{i}', cat=LpBinary) for i in range(n)]\n    p += lpSum(u[i]*yv[i] for i in range(n))\n    p += lpSum(yv[i] for i in range(n)) &lt;= M_v\n    p += lpSum(a[i]*yv[i] for i in range(n)) &lt;= B_v\n    p += lpSum(l_vec[i]*yv[i] for i in range(n)) &lt;= L_v\n    p += lpSum(yv[i] for i in range(3)) &gt;= 0.70\n    p += lpSum(yv[i] for i in range(3,6)) &gt;= 0.70\n    p += lpSum(yv[i] for i in range(6,9)) &gt;= 0.70\n    p.solve(PULP_CBC_CMD(msg=0))\n    obj = value(p.objective)\n    return float(obj) if obj else 0.0\n\nB_s = [round(3.5+i*0.1,1) for i in range(21)]\nZ_B = [resolver_ilp(4, b, 2.80) for b in B_s]\nL_s = [round(1.5+i*0.1,1) for i in range(21)]\nZ_L = [resolver_ilp(4, 4.70, lv) for lv in L_s]\n\nfig, axes = plt.subplots(1, 2, figsize=(12, 4.5))\nfor axi in axes:\n    axi.set_facecolor('#1a1a2e')\n    axi.tick_params(colors='white')\n    for sp in axi.spines.values(): sp.set_color('#333')\n    axi.grid(axis='y', alpha=0.15, color='white')\nfig.set_facecolor('#1a1a2e')\n\nbx = [(b,z) for b,z in zip(B_s,Z_B) if z &gt; 0]\naxes[0].plot([x[0] for x in bx], [x[1] for x in bx],\n             'o-', color='#e94560', markersize=5)\naxes[0].axvline(x=4.70, color='#4fc3f7', linestyle='--', alpha=0.7,\n                label='B = 4.70')\naxes[0].set_xlabel('Carga cognitiva (B)', color='white')\naxes[0].set_ylabel('Z*', color='white')\naxes[0].set_title('Sensibilidad a carga cognitiva', color='white')\naxes[0].legend(fontsize=9)\n\nlx = [(lv,z) for lv,z in zip(L_s,Z_L) if z &gt; 0]\naxes[1].plot([x[0] for x in lx], [x[1] for x in lx],\n             's-', color='#ffb74d', markersize=5)\naxes[1].axvline(x=2.80, color='#4fc3f7', linestyle='--', alpha=0.7,\n                label='L = 2.80')\naxes[1].set_xlabel('Latencia (L)', color='white')\naxes[1].set_ylabel('Z*', color='white')\naxes[1].set_title('Sensibilidad a latencia', color='white')\naxes[1].legend(fontsize=9)\n\nplt.tight_layout()\nplt.show()"
+  },
+  {
+    "objectID": "presentacion_parte1.html#hallazgos-del-análisis-de-sensibilidad",
+    "href": "presentacion_parte1.html#hallazgos-del-análisis-de-sensibilidad",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Hallazgos del análisis de sensibilidad",
+    "text": "Hallazgos del análisis de sensibilidad\n\n\n\nCarga cognitiva \\(B\\): restricción más activa (holgura = 0,05)\nReducir \\(B\\) a 4,00 \\(\\Rightarrow\\) se excluye \\(Q_4\\), se incluye \\(Q_6\\)\nLatencia \\(L\\): holgura moderada (0,20)\nReducir \\(L\\) a 2,00 \\(\\Rightarrow\\) se priorizan \\(Q_5, Q_6, Q_9\\)\n\n\n\n\n\n\nRestricciones activas\n\n\n\nMáximo de preguntas: exactamente 4 seleccionadas\nCarga cognitiva: 4,65 / 4,70 (98,9%)\nCobertura: satisfecha con margen\n\nLa carga cognitiva es el cuello de botella del sistema."
+  },
+  {
+    "objectID": "presentacion_parte1.html#aportes-y-extensiones",
+    "href": "presentacion_parte1.html#aportes-y-extensiones",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Aportes y extensiones",
+    "text": "Aportes y extensiones\n\n\nResultados principales\n\nFormulación LP exacta y resoluble en tiempo polinomial\nBrecha de integralidad mínima (0,03)\nSolución ILP directamente implementable en producción\nAnálisis de sensibilidad identifica restricciones críticas\n\n\nExtensiones posibles\n\nMultiobjetivo: relevancia + diversidad simultáneamente\nEstocástica: incertidumbre en parámetros de utilidad\nDinámica: políticas adaptativas durante la conversación\nAprendizaje: actualización de \\(r_i, g_i\\) con retroalimentación real"
+  },
+  {
+    "objectID": "presentacion_parte1.html#section",
+    "href": "presentacion_parte1.html#section",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "",
+    "text": "Gracias\n\n\nModelo de Programación Lineal — Parte I\nTópicos Especiales 1 · Doctorado en Informática\nEscuela Politécnica Nacional · 2026"
+  },
+  {
+    "objectID": "presentacion_parte1.html#referencias",
+    "href": "presentacion_parte1.html#referencias",
+    "title": "Selección Óptima de Preguntas para un Chatbot Conversacional",
+    "section": "Referencias",
+    "text": "Referencias\n\n\n[1] D. Jannach, A. Manzoor, W. Cai, and L. Chen, “A survey on conversational recommender systems,” ACM Computing Surveys, vol. 54, no. 5, pp. 1–36, 2021, doi: 10.1145/3453154."
+  },
+  {
+    "objectID": "parte1_implementacion.html",
+    "href": "parte1_implementacion.html",
+    "title": "Implementación — Parte I",
+    "section": "",
+    "text": "—title: “Implementación — Parte I”subtitle: “Modelo de Programación Lineal para Selección de Preguntas”description: “Notebook con implementación en scipy y PuLP del modelo LP/ILP, visualizaciones y análisis de sensibilidad.”categories: [Parte I, Notebook, LP, ILP, Python]image: images/parte1_thumb.svgformat: html: code-fold: false code-tools: true—"
+  },
+  {
+    "objectID": "parte1_implementacion.html#implementación-en-python-con-visualización-de-resultados",
+    "href": "parte1_implementacion.html#implementación-en-python-con-visualización-de-resultados",
+    "title": "Implementación — Parte I",
+    "section": "Implementación en Python con visualización de resultados",
+    "text": "Implementación en Python con visualización de resultados\nEste notebook presenta la implementación computacional del modelo de programación lineal (LP) y su extensión binaria (ILP) para la selección óptima de preguntas en un chatbot conversacional, tal como se formula en la Parte I del informe."
+  },
+  {
+    "objectID": "parte1_implementacion.html#datos-del-problema",
+    "href": "parte1_implementacion.html#datos-del-problema",
+    "title": "Implementación — Parte I",
+    "section": "1. Datos del problema",
+    "text": "1. Datos del problema\nDefinimos los parámetros de las 9 preguntas candidatas y las restricciones del sistema.\n\nimport numpy as np\nimport matplotlib.pyplot as plt\nfrom scipy.optimize import linprog\n\n# --- Parámetros de las preguntas candidatas ---\npreguntas = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9']\ncategorias = ['Clarificación', 'Clarificación', 'Clarificación',\n              'Preferencias', 'Preferencias', 'Preferencias',\n              'Objetivos', 'Objetivos', 'Objetivos']\n\nr = np.array([0.90, 0.80, 0.72, 0.89, 0.80, 0.70, 0.92, 0.77, 0.75])  # relevancia\ng = np.array([0.90, 0.72, 0.78, 0.84, 0.76, 0.67, 0.88, 0.80, 0.68])  # ganancia de información\na = np.array([1.60, 1.10, 0.95, 1.40, 1.10, 0.85, 1.70, 1.20, 0.85])  # carga cognitiva\nl = np.array([0.75, 0.55, 0.70, 0.80, 0.45, 0.40, 1.00, 0.65, 0.50])  # latencia\n\n# Utilidad de cada pregunta: u_i = 0.55*r_i + 0.45*g_i - 0.08*a_i\nu = 0.55 * r + 0.45 * g - 0.08 * a\n\n# Restricciones del sistema\nM = 4      # máximo de preguntas\nB = 4.70   # presupuesto de carga cognitiva\nL = 2.80   # presupuesto de latencia\nm_k = 0.70 # cobertura mínima por categoría\n\nprint('Utilidades calculadas:')\nfor i in range(9):\n    print(f'  {preguntas[i]} ({categorias[i]:15s}): u = {u[i]:.4f}')\n\nUtilidades calculadas:\n  Q1 (Clarificación  ): u = 0.7720\n  Q2 (Clarificación  ): u = 0.6760\n  Q3 (Clarificación  ): u = 0.6710\n  Q4 (Preferencias   ): u = 0.7555\n  Q5 (Preferencias   ): u = 0.6940\n  Q6 (Preferencias   ): u = 0.6185\n  Q7 (Objetivos      ): u = 0.7660\n  Q8 (Objetivos      ): u = 0.6875\n  Q9 (Objetivos      ): u = 0.6505"
+  },
+  {
+    "objectID": "parte1_implementacion.html#modelo-continuo-lp-con-scipy.optimize.linprog",
+    "href": "parte1_implementacion.html#modelo-continuo-lp-con-scipy.optimize.linprog",
+    "title": "Implementación — Parte I",
+    "section": "2. Modelo continuo (LP) con scipy.optimize.linprog",
+    "text": "2. Modelo continuo (LP) con scipy.optimize.linprog\nResolvemos el programa lineal relajado donde \\(x_i \\in [0, 1]\\).\n\nn = 9\n\n# linprog minimiza, así que negamos la utilidad para maximizar\nc_obj = -u\n\n# --- Restricciones de desigualdad (A_ub @ x &lt;= b_ub) ---\nA_ub = [\n    np.ones(n),   # sum(x_i) &lt;= M\n    a,            # sum(a_i * x_i) &lt;= B\n    l,            # sum(l_i * x_i) &lt;= L\n    # Cobertura mínima: sum(x_i en I_k) &gt;= m_k  --&gt;  -sum(x_i en I_k) &lt;= -m_k\n    np.array([-1,-1,-1, 0, 0, 0, 0, 0, 0]),  # -Clarificación &lt;= -0.70\n    np.array([ 0, 0, 0,-1,-1,-1, 0, 0, 0]),   # -Preferencias  &lt;= -0.70\n    np.array([ 0, 0, 0, 0, 0, 0,-1,-1,-1]),   # -Objetivos     &lt;= -0.70\n]\nb_ub = [M, B, L, -m_k, -m_k, -m_k]\n\n# Cotas: 0 &lt;= x_i &lt;= 1\nbounds = [(0, 1)] * n\n\n# Resolver\nres_lp = linprog(c_obj, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')\n\nprint(f'Estado: {res_lp.message}')\nprint(f'Utilidad óptima LP: Z* = {-res_lp.fun:.4f}\\n')\nprint('Asignaciones óptimas (proporción de sesiones):')\nfor i in range(n):\n    print(f'  {preguntas[i]}: x = {res_lp.x[i]:.4f}')\n\nEstado: Optimization terminated successfully. (HiGHS Status 7: Optimal)\nUtilidad óptima LP: Z* = 2.8348\n\nAsignaciones óptimas (proporción de sesiones):\n  Q1: x = 0.6500\n  Q2: x = 0.0000\n  Q3: x = 1.0000\n  Q4: x = 1.0000\n  Q5: x = 0.6500\n  Q6: x = 0.0000\n  Q7: x = 0.0000\n  Q8: x = 0.0000\n  Q9: x = 0.7000"
+  },
+  {
+    "objectID": "parte1_implementacion.html#modelo-binario-ilp-con-pulp",
+    "href": "parte1_implementacion.html#modelo-binario-ilp-con-pulp",
+    "title": "Implementación — Parte I",
+    "section": "3. Modelo binario (ILP) con PuLP",
+    "text": "3. Modelo binario (ILP) con PuLP\nResolvemos el programa lineal entero binario donde \\(y_i \\in \\{0, 1\\}\\).\n\nfrom pulp import LpMaximize, LpProblem, LpVariable, lpSum, value, LpBinary\n\nprob = LpProblem('Seleccion_Preguntas', LpMaximize)\n\n# Variables binarias\ny = [LpVariable(f'y_{i+1}', cat=LpBinary) for i in range(n)]\n\n# Función objetivo\nprob += lpSum(u[i] * y[i] for i in range(n)), 'Utilidad_Total'\n\n# Restricciones\nprob += lpSum(y[i] for i in range(n)) &lt;= M, 'Max_Preguntas'\nprob += lpSum(a[i] * y[i] for i in range(n)) &lt;= B, 'Carga_Cognitiva'\nprob += lpSum(l[i] * y[i] for i in range(n)) &lt;= L, 'Latencia'\nprob += lpSum(y[i] for i in range(3)) &gt;= m_k, 'Cobertura_Clarificacion'      # Q1-Q3\nprob += lpSum(y[i] for i in range(3, 6)) &gt;= m_k, 'Cobertura_Preferencias'    # Q4-Q6\nprob += lpSum(y[i] for i in range(6, 9)) &gt;= m_k, 'Cobertura_Objetivos'       # Q7-Q9\n\nprob.solve()\n\nprint(f'Estado: {prob.status} ({\"Óptimo\" if prob.status == 1 else \"No óptimo\"})')\nprint(f'Utilidad óptima ILP: Z* = {value(prob.objective):.4f}\\n')\n\nseleccionadas = []\nprint('Decisiones:')\nfor i in range(n):\n    sel = int(value(y[i]))\n    marca = '✓ Seleccionada' if sel == 1 else '  No seleccionada'\n    print(f'  {preguntas[i]} (u={u[i]:.4f}): {marca}')\n    if sel == 1:\n        seleccionadas.append(i)\n\ncarga_usada = sum(a[i] for i in seleccionadas)\nlatencia_usada = sum(l[i] for i in seleccionadas)\nprint(f'\\nRecursos utilizados:')\nprint(f'  Carga cognitiva: {carga_usada:.2f} / {B:.2f} (holgura: {B - carga_usada:.2f})')\nprint(f'  Latencia:        {latencia_usada:.2f} / {L:.2f} (holgura: {L - latencia_usada:.2f})')\n\nEstado: 1 (Óptimo)\nUtilidad óptima ILP: Z* = 2.8080\n\nDecisiones:\n  Q1 (u=0.7720):   No seleccionada\n  Q2 (u=0.6760):   No seleccionada\n  Q3 (u=0.6710): ✓ Seleccionada\n  Q4 (u=0.7555): ✓ Seleccionada\n  Q5 (u=0.6940): ✓ Seleccionada\n  Q6 (u=0.6185):   No seleccionada\n  Q7 (u=0.7660):   No seleccionada\n  Q8 (u=0.6875): ✓ Seleccionada\n  Q9 (u=0.6505):   No seleccionada\n\nRecursos utilizados:\n  Carga cognitiva: 4.65 / 4.70 (holgura: 0.05)\n  Latencia:        2.60 / 2.80 (holgura: 0.20)"
+  },
+  {
+    "objectID": "parte1_implementacion.html#visualización-de-resultados",
+    "href": "parte1_implementacion.html#visualización-de-resultados",
+    "title": "Implementación — Parte I",
+    "section": "4. Visualización de resultados",
+    "text": "4. Visualización de resultados\n\n4.1 Comparación de utilidades por pregunta\n\nfig, ax = plt.subplots(figsize=(10, 5))\n\ncolores_cat = {'Clarificación': '#2196F3', 'Preferencias': '#FF9800', 'Objetivos': '#4CAF50'}\ncolores = [colores_cat[c] for c in categorias]\nbordes = ['#D32F2F' if i in seleccionadas else 'none' for i in range(n)]\nanchos = [3 if i in seleccionadas else 0 for i in range(n)]\n\nbars = ax.bar(preguntas, u, color=colores, edgecolor=bordes, linewidth=anchos)\n\nfor i in seleccionadas:\n    ax.annotate('Seleccionada', (i, u[i]), textcoords='offset points',\n                xytext=(0, 8), ha='center', fontsize=8, fontweight='bold', color='#D32F2F')\n\nfrom matplotlib.patches import Patch\nlegend_elements = [Patch(facecolor=c, label=k) for k, c in colores_cat.items()]\nlegend_elements.append(Patch(facecolor='white', edgecolor='#D32F2F', linewidth=2, label='Seleccionada (ILP)'))\nax.legend(handles=legend_elements, loc='upper right')\n\nax.set_ylabel('Utilidad $u_i$')\nax.set_title('Utilidad por pregunta candidata — Solución ILP')\nax.set_ylim(0, max(u) * 1.15)\nplt.tight_layout()\nplt.show()\n\n\n\n\n\n\n\n\n\n\n4.2 Comparación LP vs ILP\n\nfig, axes = plt.subplots(1, 2, figsize=(12, 5))\n\n# Gráfico LP (continuo)\naxes[0].bar(preguntas, res_lp.x, color=colores, alpha=0.8)\naxes[0].set_ylabel('$x_i$ (proporción)')\naxes[0].set_title(f'Modelo Continuo (LP)\\nZ* = {-res_lp.fun:.4f}')\naxes[0].set_ylim(0, 1.15)\naxes[0].axhline(y=1, color='gray', linestyle='--', alpha=0.3)\n\n# Gráfico ILP (binario)\ny_vals = [int(value(y[i])) for i in range(n)]\naxes[1].bar(preguntas, y_vals, color=colores, alpha=0.8)\naxes[1].set_ylabel('$y_i$ (0 o 1)')\naxes[1].set_title(f'Modelo Binario (ILP)\\nZ* = {value(prob.objective):.4f}')\naxes[1].set_ylim(0, 1.15)\n\nfor ax in axes:\n    ax.legend(handles=[Patch(facecolor=c, label=k) for k, c in colores_cat.items()],\n              loc='upper right', fontsize=8)\n\nfig.suptitle(f'Brecha de integralidad: {-res_lp.fun - value(prob.objective):.4f}', fontsize=11, y=0.02)\nplt.tight_layout()\nplt.show()\n\n\n\n\n\n\n\n\n\n\n4.3 Uso de recursos vs presupuesto\n\nfig, ax = plt.subplots(figsize=(8, 4))\n\nrecursos = ['Preguntas', 'Carga cognitiva', 'Latencia']\nusados = [len(seleccionadas), carga_usada, latencia_usada]\npresupuestos = [M, B, L]\nholguras = [p - us for p, us in zip(presupuestos, usados)]\n\nx_pos = np.arange(len(recursos))\nwidth = 0.35\n\nbars1 = ax.bar(x_pos - width/2, usados, width, label='Utilizado', color='#1976D2')\nbars2 = ax.bar(x_pos + width/2, presupuestos, width, label='Presupuesto', color='#BBDEFB', edgecolor='#1976D2', linewidth=1.5)\n\nfor i, (us_val, h) in enumerate(zip(usados, holguras)):\n    ax.annotate(f'Holgura: {h:.2f}', (i, max(us_val, presupuestos[i])),\n                textcoords='offset points', xytext=(0, 8), ha='center', fontsize=9)\n\nax.set_xticks(x_pos)\nax.set_xticklabels(recursos)\nax.set_ylabel('Valor')\nax.set_title('Uso de recursos — Solución ILP')\nax.legend()\nplt.tight_layout()\nplt.show()\n\n\n\n\n\n\n\n\n\n\n4.4 Análisis de sensibilidad\n\nfrom pulp import PULP_CBC_CMDdef resolver_ilp_sens(M_val, B_val, L_val):    p = LpProblem('Sens', LpMaximize)    yv = [LpVariable(f'ys_{i}', cat=LpBinary) for i in range(n)]    p += lpSum(u[i] * yv[i] for i in range(n))    p += lpSum(yv[i] for i in range(n)) &lt;= M_val    p += lpSum(a[i] * yv[i] for i in range(n)) &lt;= B_val    p += lpSum(l[i] * yv[i] for i in range(n)) &lt;= L_val    p += lpSum(yv[i] for i in range(3)) &gt;= m_k    p += lpSum(yv[i] for i in range(3, 6)) &gt;= m_k    p += lpSum(yv[i] for i in range(6, 9)) &gt;= m_k    p.solve(PULP_CBC_CMD(msg=0))    obj = value(p.objective)    return float(obj) if obj is not None else 0.0B_sens = [round(3.5 + i*0.1, 1) for i in range(27)]Z_B = [resolver_ilp_sens(M, bv, L) for bv in B_sens]L_sens = [round(1.5 + i*0.1, 1) for i in range(27)]Z_L = [resolver_ilp_sens(M, B, lv) for lv in L_sens]M_sens = [3, 4, 5, 6, 7]Z_M = [resolver_ilp_sens(mv, B, L) for mv in M_sens]# Filtrar infactiblesbx = [b for b, z in zip(B_sens, Z_B) if z &gt; 0]by = [z for z in Z_B if z &gt; 0]lx = [lv for lv, z in zip(L_sens, Z_L) if z &gt; 0]ly = [z for z in Z_L if z &gt; 0]fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))axes[0].plot(bx, by, 'o-', color='#D32F2F', markersize=4)axes[0].axvline(x=B, color='gray', linestyle='--', alpha=0.5, label=f'B={B}')axes[0].set_xlabel('Presupuesto de carga cognitiva (B)')axes[0].set_ylabel('Utilidad óptima Z*')axes[0].set_title('Sensibilidad a carga cognitiva')axes[0].legend()axes[1].plot(lx, ly, 's-', color='#1976D2', markersize=4)axes[1].axvline(x=L, color='gray', linestyle='--', alpha=0.5, label=f'L={L}')axes[1].set_xlabel('Presupuesto de latencia (L)')axes[1].set_ylabel('Utilidad óptima Z*')axes[1].set_title('Sensibilidad a latencia')axes[1].legend()axes[2].bar([str(m) for m in M_sens], Z_M, color='#4CAF50', alpha=0.8)axes[2].set_xlabel('Máximo de preguntas (M)')axes[2].set_ylabel('Utilidad óptima Z*')axes[2].set_title('Sensibilidad a número de preguntas')plt.suptitle('Análisis de sensibilidad', fontsize=13, fontweight='bold')plt.tight_layout()plt.show()"
+  },
+  {
+    "objectID": "parte1_implementacion.html#resumen-de-resultados",
+    "href": "parte1_implementacion.html#resumen-de-resultados",
+    "title": "Implementación — Parte I",
+    "section": "5. Resumen de resultados",
+    "text": "5. Resumen de resultados\n\n\n\n\n\n\n\n\n\nModelo\nUtilidad óptima\nPreguntas seleccionadas\nHerramienta\n\n\n\n\nContinuo (LP)\nZ* ≈ 2.8348\nAsignaciones fraccionarias\nscipy.optimize.linprog\n\n\nBinario (ILP)\nZ* = 2.8080\nQ3, Q4, Q5, Q8\nPuLP\n\n\n\nLa brecha de integralidad es de apenas 0.0268, confirmando que la relajación LP es una excelente aproximación al problema binario. Las restricciones más activas son la de carga cognitiva (holgura de 0.05) y la de máximo de preguntas (ajustada exactamente a 4)."
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Modelos de Optimización",
+    "section": "",
+    "text": "Formulación matemática, análisis teórico y resultados de cada parte del trabajo.\n\n\n\n\n\n\n\n\n\n\n\nVinculado con la Tesis Doctoral\n\n\n\nParte I\n\nReporte\n\nLP\n\nILP\n\n\n\nFormulación y resolución de un modelo LP/ILP para la selección óptima de preguntas en un chatbot conversacional, con implementación en scipy y PuLP.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nRuta Más Corta (SPP) y Agente Viajero (TSP)\n\n\n\nParte II\n\nReporte\n\nSPP\n\nTSP\n\n\n\nEstudio, formulación LP/ILP e implementación de los problemas de ruta más corta (Dijkstra) y del agente viajero (MTZ), con análisis de complejidad.\n\n\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "index.html#reportes",
+    "href": "index.html#reportes",
+    "title": "Modelos de Optimización",
+    "section": "",
+    "text": "Formulación matemática, análisis teórico y resultados de cada parte del trabajo.\n\n\n\n\n\n\n\n\n\n\n\nVinculado con la Tesis Doctoral\n\n\n\nParte I\n\nReporte\n\nLP\n\nILP\n\n\n\nFormulación y resolución de un modelo LP/ILP para la selección óptima de preguntas en un chatbot conversacional, con implementación en scipy y PuLP.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nRuta Más Corta (SPP) y Agente Viajero (TSP)\n\n\n\nParte II\n\nReporte\n\nSPP\n\nTSP\n\n\n\nEstudio, formulación LP/ILP e implementación de los problemas de ruta más corta (Dijkstra) y del agente viajero (MTZ), con análisis de complejidad.\n\n\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "index.html#presentaciones",
+    "href": "index.html#presentaciones",
+    "title": "Modelos de Optimización",
+    "section": "Presentaciones",
+    "text": "Presentaciones\nDiapositivas interactivas (reveal.js) con código ejecutable y visualizaciones.\n\n\n\n\n\n\n\n\n\n\nSelección Óptima de Preguntas para un Chatbot Conversacional\n\n\nModelo de Programación Lineal — Parte I\n\n\n\nParte I\n\nPresentación\n\nLP\n\n\n\nPresentación reveal.js del modelo LP/ILP para selección de preguntas en chatbots conversacionales.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nOptimización Combinatoria: SPP y TSP\n\n\nRuta Más Corta y Agente Viajero — Parte II\n\n\n\nParte II\n\nPresentación\n\nSPP\n\nTSP\n\n\n\nPresentación reveal.js de los problemas de ruta más corta (Dijkstra) y agente viajero (MTZ) con código ejecutable.\n\n\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "index.html#implementaciones",
+    "href": "index.html#implementaciones",
+    "title": "Modelos de Optimización",
+    "section": "Implementaciones",
+    "text": "Implementaciones\nNotebooks con implementación computacional completa, visualizaciones y análisis de escalabilidad.\n\n\n\n\n\n\n\n\n\n\nImplementación — Parte I\n\n\nModelo de Programación Lineal para Selección de Preguntas\n\n\n\nParte I\n\nNotebook\n\nLP\n\nILP\n\nPython\n\n\n\nNotebook con implementación en scipy y PuLP del modelo LP/ILP, visualizaciones y análisis de sensibilidad.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nImplementación — Parte II\n\n\nRuta Más Corta (SPP) y Agente Viajero (TSP)\n\n\n\nParte II\n\nNotebook\n\nSPP\n\nTSP\n\nPython\n\n\n\nNotebook con Dijkstra, formulación LP/ILP (PuLP), heurísticas TSP y análisis de escalabilidad con visualizaciones Plotly.\n\n\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "Este sitio web presenta la resolución de la Tarea 1 de la asignatura Tópicos Especiales 1: Sistemas de Información 1, correspondiente al programa de Doctorado en Informática de la Escuela Politécnica Nacional (EPN).\nEl trabajo fue realizado por Marco Esteban Aguirre Rojas, como parte de las actividades académicas del programa doctoral.\nLa tarea comprende la formulación matemática, implementación computacional y resolución de los problemas de optimización propuestos, utilizando herramientas de programación matemática y Python.\nEl sitio contiene el desarrollo del deber, los modelos matemáticos, las implementaciones y los resultados obtenidos.\nEl informe académico completo y los materiales complementarios se encuentran disponibles en las diferentes secciones de este sitio web."
+  },
+  {
+    "objectID": "about.html#acerca-de-este-sitio",
+    "href": "about.html#acerca-de-este-sitio",
+    "title": "About",
+    "section": "",
+    "text": "Este sitio web presenta la resolución de la Tarea 1 de la asignatura Tópicos Especiales 1: Sistemas de Información 1, correspondiente al programa de Doctorado en Informática de la Escuela Politécnica Nacional (EPN).\nEl trabajo fue realizado por Marco Esteban Aguirre Rojas, como parte de las actividades académicas del programa doctoral.\nLa tarea comprende la formulación matemática, implementación computacional y resolución de los problemas de optimización propuestos, utilizando herramientas de programación matemática y Python.\nEl sitio contiene el desarrollo del deber, los modelos matemáticos, las implementaciones y los resultados obtenidos.\nEl informe académico completo y los materiales complementarios se encuentran disponibles en las diferentes secciones de este sitio web."
+  },
+  {
+    "objectID": "about.html#información-académica",
+    "href": "about.html#información-académica",
+    "title": "About",
+    "section": "Información académica",
+    "text": "Información académica\n\nInstitución: Escuela Politécnica Nacional (EPN).\nPrograma: Doctorado en Informática.\nAsignatura: Tópicos Especiales 1: Sistemas de Información 1.\nTema: Modelización Matemática y Modelos de Optimización Combinatoria.\nActividad: Tarea 1.\nAutor: Marco Esteban Aguirre Rojas.\nFecha de entrega: 9 de noviembre de 2026."
+  },
+  {
+    "objectID": "about.html#página-web-personal",
+    "href": "about.html#página-web-personal",
+    "title": "About",
+    "section": "Página web personal",
+    "text": "Página web personal\nPara conocer más sobre mis proyectos académicos, investigaciones y trabajos desarrollados, puede visitar mi página web:\nMarco Esteban Aguirre Rojas — Sitio web personal\n\n© 2026 Marco Esteban Aguirre Rojas | Doctorado en Informática — Escuela Politécnica Nacional."
+  },
+  {
+    "objectID": "parte1.html",
+    "href": "parte1.html",
+    "title": "Parte I: Modelo de Programación Lineal",
+    "section": "",
+    "text": "La investigación doctoral “Agentic Conversational User Modeling Framework for Question Recommendation” propone un framework basado en agentes de inteligencia artificial para la generación, evaluación y recomendación contextual de preguntas en sistemas conversacionales.\nLos sistemas de recomendación conversacionales establecen interacciones dinámicas con los usuarios mediante preguntas y respuestas para identificar necesidades y preferencias (Jannach et al. 2021; Christakopoulou et al. 2016; Gao et al. 2021). Actualmente, los modelos de lenguaje de gran tamaño (LLM) pueden generar múltiples preguntas a partir del contexto de interacción (Sun and Zhang 2018); sin embargo, presentar demasiadas preguntas aumenta la carga cognitiva y afecta negativamente la experiencia del usuario (Zhang et al. 2018; Lei et al. 2020).\nUno de los desafíos centrales consiste en seleccionar un conjunto limitado de preguntas que maximice la relevancia y la ganancia de información esperada, respetando restricciones de carga cognitiva, latencia y diversidad de propósitos conversacionales. Este problema de decisión admite formulación como programa lineal."
+  },
+  {
+    "objectID": "parte1.html#contexto-y-justificación",
+    "href": "parte1.html#contexto-y-justificación",
+    "title": "Parte I: Modelo de Programación Lineal",
+    "section": "",
+    "text": "La investigación doctoral “Agentic Conversational User Modeling Framework for Question Recommendation” propone un framework basado en agentes de inteligencia artificial para la generación, evaluación y recomendación contextual de preguntas en sistemas conversacionales.\nLos sistemas de recomendación conversacionales establecen interacciones dinámicas con los usuarios mediante preguntas y respuestas para identificar necesidades y preferencias (Jannach et al. 2021; Christakopoulou et al. 2016; Gao et al. 2021). Actualmente, los modelos de lenguaje de gran tamaño (LLM) pueden generar múltiples preguntas a partir del contexto de interacción (Sun and Zhang 2018); sin embargo, presentar demasiadas preguntas aumenta la carga cognitiva y afecta negativamente la experiencia del usuario (Zhang et al. 2018; Lei et al. 2020).\nUno de los desafíos centrales consiste en seleccionar un conjunto limitado de preguntas que maximice la relevancia y la ganancia de información esperada, respetando restricciones de carga cognitiva, latencia y diversidad de propósitos conversacionales. Este problema de decisión admite formulación como programa lineal."
+  },
+  {
+    "objectID": "parte1.html#definición-del-problema",
+    "href": "parte1.html#definición-del-problema",
+    "title": "Parte I: Modelo de Programación Lineal",
+    "section": "Definición del problema",
+    "text": "Definición del problema\nUna empresa tecnológica desarrolla un chatbot inteligente que recomienda preguntas iniciales al usuario. El sistema dispone de agentes de IA que analizan contenido, generan preguntas candidatas y estiman indicadores de calidad. Se establece que el chatbot no debe presentar más de cuatro preguntas en su interfaz inicial.\nEl sistema genera \\(n = 9\\) preguntas candidatas clasificadas en tres categorías:\n\nClarificación (\\(C\\)): preguntas que precisan información del contenido.\nPreferencias (\\(P\\)): preguntas que personalizan la exploración según intereses.\nObjetivos (\\(O\\)): preguntas que profundizan en el conocimiento.\n\nCada pregunta \\(i\\) tiene asociados cuatro parámetros: relevancia \\(r_i\\), ganancia de información \\(g_i\\), carga cognitiva \\(a_i\\) y latencia \\(\\ell_i\\).\nDecisiones: qué preguntas recomendar al inicio de la conversación.\nObjetivo: maximizar la utilidad total de las preguntas seleccionadas.\nRestricciones: máximo de preguntas, presupuesto de carga cognitiva, presupuesto de latencia y cobertura mínima por categoría."
+  },
+  {
+    "objectID": "parte1.html#parámetros-del-modelo",
+    "href": "parte1.html#parámetros-del-modelo",
+    "title": "Parte I: Modelo de Programación Lineal",
+    "section": "Parámetros del modelo",
+    "text": "Parámetros del modelo\nLa utilidad de cada pregunta se calcula mediante:\n\\[\nu_i = 0{,}55\\,r_i + 0{,}45\\,g_i - 0{,}08\\,a_i\n\\]\n\nParámetros de las preguntas candidatas (datos sintéticos normalizados).\n\n\nPregunta\nCategoría\n\\(r_i\\)\n\\(g_i\\)\n\\(a_i\\)\n\\(\\ell_i\\)\n\n\n\n\n\\(Q_1\\)\nClarificación\n0.90\n0.90\n1.60\n0.75\n\n\n\\(Q_2\\)\nClarificación\n0.80\n0.72\n1.10\n0.55\n\n\n\\(Q_3\\)\nClarificación\n0.72\n0.78\n0.95\n0.70\n\n\n\\(Q_4\\)\nPreferencias\n0.89\n0.84\n1.40\n0.80\n\n\n\\(Q_5\\)\nPreferencias\n0.80\n0.76\n1.10\n0.45\n\n\n\\(Q_6\\)\nPreferencias\n0.70\n0.67\n0.85\n0.40\n\n\n\\(Q_7\\)\nObjetivos\n0.92\n0.88\n1.70\n1.00\n\n\n\\(Q_8\\)\nObjetivos\n0.77\n0.80\n1.20\n0.65\n\n\n\\(Q_9\\)\nObjetivos\n0.75\n0.68\n0.85\n0.50\n\n\n\nParámetros del sistema: máximo de preguntas \\(M=4\\), presupuesto de carga cognitiva \\(B=4{,}70\\), presupuesto de latencia \\(L=2{,}80\\), cobertura mínima por categoría \\(m_k=0{,}70\\)."
+  },
+  {
+    "objectID": "parte1.html#formulación-matemática",
+    "href": "parte1.html#formulación-matemática",
+    "title": "Parte I: Modelo de Programación Lineal",
+    "section": "Formulación matemática",
+    "text": "Formulación matemática\n\nModelo de planificación continuo (Programa Lineal)\nSea \\(x_i \\in [0,1]\\) la proporción esperada de sesiones en las que se recomienda la pregunta \\(i\\).\nConjuntos e índices:\n\n\\(I = \\{1, 2, \\ldots, 9\\}\\): conjunto de preguntas candidatas.\n\\(K = \\{C, P, O\\}\\): conjunto de categorías.\n\\(I_k \\subseteq I\\): subconjunto de preguntas de la categoría \\(k\\).\n\nParámetros: \\(r_i\\), \\(g_i\\), \\(a_i\\), \\(\\ell_i\\); \\(M=4\\), \\(B=4{,}70\\), \\(L=2{,}80\\), \\(m_k=0{,}70\\).\nFunción objetivo:\n\\[\n\\max\\; Z = \\sum_{i=1}^{9} \\bigl(0{,}55\\,r_i + 0{,}45\\,g_i - 0{,}08\\,a_i\\bigr)\\,x_i\n\\]\nRestricciones:\n\\[\n\\sum_{i=1}^{9} x_i \\leq 4 \\qquad \\text{(máximo de preguntas)}\n\\]\n\\[\n\\sum_{i=1}^{9} a_i\\,x_i \\leq 4{,}70 \\qquad \\text{(presupuesto de carga cognitiva)}\n\\]\n\\[\n\\sum_{i=1}^{9} \\ell_i\\,x_i \\leq 2{,}80 \\qquad \\text{(presupuesto de latencia)}\n\\]\n\\[\n\\sum_{i \\in I_k} x_i \\geq 0{,}70 \\qquad \\forall\\, k \\in \\{C, P, O\\} \\quad \\text{(cobertura)}\n\\]\n\\[\n0 \\leq x_i \\leq 1 \\qquad \\forall\\, i \\in I\n\\]\nEste modelo es completamente lineal: la función objetivo es lineal en \\(x_i\\), y todas las restricciones son desigualdades lineales. Se resuelve con scipy.optimize.linprog.\n\n\nExtensión binaria (Programa Lineal Entero)\nPara cumplir la condición empresarial de seleccionar exactamente hasta cuatro preguntas concretas, se introduce la variable binaria:\n\\[\ny_i \\in \\{0, 1\\}, \\quad\ny_i = \\begin{cases} 1 & \\text{si se recomienda la pregunta } i, \\\\ 0 & \\text{en caso contrario.} \\end{cases}\n\\]\nSe sustituye \\(x_i\\) por \\(y_i\\) en las ecuaciones del modelo continuo, y el dominio pasa a ser binario. Esta formulación es de programación lineal entera binaria (PLIB) y se resuelve con PuLP."
+  },
+  {
+    "objectID": "parte1.html#implementación-y-resultados",
+    "href": "parte1.html#implementación-y-resultados",
+    "title": "Parte I: Modelo de Programación Lineal",
+    "section": "Implementación y resultados",
+    "text": "Implementación y resultados\n\nSolución del modelo continuo (LP)\nLa solución óptima del LP, obtenida con scipy.optimize.linprog, alcanza una utilidad de \\(Z^* \\approx 2{,}8348\\), con asignaciones fraccionarias que distribuyen la recomendación entre más de cuatro preguntas.\n\n\nSolución del modelo binario (ILP)\nLa solución óptima del ILP selecciona las preguntas \\(Q_3\\), \\(Q_4\\), \\(Q_5\\) y \\(Q_8\\):\n\nSolución óptima del modelo binario.\n\n\nPregunta\nUtilidad \\(u_i\\)\nDecisión\n\n\n\n\n\\(Q_3\\)\n0.6710\nSeleccionada\n\n\n\\(Q_4\\)\n0.7555\nSeleccionada\n\n\n\\(Q_5\\)\n0.6940\nSeleccionada\n\n\n\\(Q_8\\)\n0.6875\nSeleccionada\n\n\n\nUtilidad óptima entera: \\(Z^*_{\\text{ILP}} = 2{,}8080\\).\nRecursos utilizados: carga cognitiva \\(= 4{,}65 \\leq 4{,}70\\); latencia \\(= 2{,}60 \\leq 2{,}80\\).\nCobertura: \\(Q_3 \\in C\\), \\(Q_4, Q_5 \\in P\\), \\(Q_8 \\in O\\) — al menos una pregunta por categoría.\nLa diferencia entre la solución continua (\\(2{,}8348\\)) y la entera (\\(2{,}8080\\)) ilustra la brecha de integralidad: la relajación LP proporciona una cota superior, mientras que el ILP da la solución operativa implementable."
+  },
+  {
+    "objectID": "parte1.html#análisis-de-sensibilidad",
+    "href": "parte1.html#análisis-de-sensibilidad",
+    "title": "Parte I: Modelo de Programación Lineal",
+    "section": "Análisis de sensibilidad",
+    "text": "Análisis de sensibilidad\nSe realizó análisis de sensibilidad variando los parámetros críticos:\n\nPresupuesto de carga cognitiva: Al reducir \\(B\\) de \\(4{,}70\\) a \\(4{,}00\\), la solución cambia: se excluye \\(Q_4\\) (carga alta) y se incluye \\(Q_6\\) (carga baja), reduciéndose la utilidad a \\(\\approx 2{,}55\\).\nPresupuesto de latencia: Al reducir \\(L\\) de \\(2{,}80\\) a \\(2{,}00\\), la restricción de latencia se vuelve activa y se priorizan preguntas con baja latencia (\\(Q_5\\), \\(Q_6\\), \\(Q_9\\)).\nNúmero de preguntas: Con \\(M=3\\), la utilidad disminuye a \\(\\approx 2{,}12\\); con \\(M=5\\), aumenta a \\(\\approx 3{,}43\\) pero puede exceder los presupuestos.\n\nLas restricciones activas en la solución base son la de carga cognitiva (holgura de \\(0{,}05\\)) y la de máximo de preguntas (ajustada exactamente a 4)."
+  },
+  {
+    "objectID": "parte1.html#discusión-crítica",
+    "href": "parte1.html#discusión-crítica",
+    "title": "Parte I: Modelo de Programación Lineal",
+    "section": "Discusión crítica",
+    "text": "Discusión crítica\nLimitaciones:\n\nLos parámetros son sintéticos; en un sistema real, deberían estimarse mediante retroalimentación de usuarios y métricas de interacción.\nLa función de utilidad lineal es una simplificación; efectos de sinergia o redundancia entre preguntas no se capturan.\nEl modelo es estático: no considera la evolución de la conversación ni el aprendizaje dinámico.\n\nExtensiones posibles:\n\nProgramación entera: ya implementada como extensión binaria.\nOptimización multiobjetivo: maximizar simultáneamente relevancia y diversidad.\nProgramación estocástica: modelar incertidumbre en los parámetros de utilidad.\nOptimización secuencial: extender a políticas de recomendación adaptativas durante la conversación."
+  },
+  {
+    "objectID": "parte2.html",
+    "href": "parte2.html",
+    "title": "Parte II: Modelos de Optimización Combinatoria",
+    "section": "",
+    "text": "La Parte II estudia, formula e implementa dos problemas clásicos de optimización combinatoria: el problema de la ruta más corta (Shortest Path Problem, SPP) y el problema del agente viajero (Traveling Salesman Problem, TSP). Ambos se formulan sobre grafos, pero difieren radicalmente en complejidad computacional y estrategias de solución (Schrijver 2003; Papadimitriou and Steiglitz 1998)."
+  },
+  {
+    "objectID": "parte2.html#introducción",
+    "href": "parte2.html#introducción",
+    "title": "Parte II: Modelos de Optimización Combinatoria",
+    "section": "",
+    "text": "La Parte II estudia, formula e implementa dos problemas clásicos de optimización combinatoria: el problema de la ruta más corta (Shortest Path Problem, SPP) y el problema del agente viajero (Traveling Salesman Problem, TSP). Ambos se formulan sobre grafos, pero difieren radicalmente en complejidad computacional y estrategias de solución (Schrijver 2003; Papadimitriou and Steiglitz 1998)."
+  },
+  {
+    "objectID": "parte2.html#problema-de-la-ruta-más-corta-spp",
+    "href": "parte2.html#problema-de-la-ruta-más-corta-spp",
+    "title": "Parte II: Modelos de Optimización Combinatoria",
+    "section": "Problema de la Ruta Más Corta (SPP)",
+    "text": "Problema de la Ruta Más Corta (SPP)\n\nDefinición del problema y representación en grafos\n\n\n\n\n\n\nNoteDefinición (SPP)\n\n\n\nDado un grafo dirigido \\(G = (V, A)\\) con costos \\(c_{ij} \\geq 0\\) en cada arco \\((i,j) \\in A\\), un nodo origen \\(s\\) y un nodo destino \\(t\\), el problema consiste en encontrar un camino dirigido de \\(s\\) a \\(t\\) de costo total mínimo (Ahuja et al. 1993; Bazaraa et al. 2010).\n\n\nUn camino dirigido de \\(s\\) a \\(t\\) es una secuencia \\(s = v_0, v_1, \\ldots, v_k = t\\) con \\((v_{i-1}, v_i) \\in A\\). Su costo es \\(\\sum_{i=1}^{k} c_{v_{i-1}, v_i}\\).\nSe utiliza un grafo dirigido ponderado de 6 nodos como ejemplo:\n\nArcos y costos del grafo de ejemplo.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nArco\n\\((1,2)\\)\n\\((1,4)\\)\n\\((1,5)\\)\n\\((2,3)\\)\n\\((2,5)\\)\n\\((3,6)\\)\n\\((4,2)\\)\n\\((4,5)\\)\n\\((5,6)\\)\n\n\n\n\nCosto\n7\n9\n14\n10\n15\n11\n6\n2\n9\n\n\n\n\n\nFormulación matemática como programa lineal\nLa formulación como programa lineal de flujo en redes se basa en variables de flujo (Bertsimas and Tsitsiklis 1997; Bazaraa et al. 2010). Se define \\(x_{ij} \\geq 0\\) para cada arco \\((i,j) \\in A\\):\n\\[\n\\min \\sum_{(i,j) \\in A} c_{ij}\\, x_{ij}\n\\]\nsujeto a:\n\\[\n\\sum_{j:(i,j)\\in A} x_{ij} - \\sum_{j:(j,i)\\in A} x_{ji} = \\begin{cases} 1 & \\text{si } i = s \\\\ -1 & \\text{si } i = t \\\\ 0 & \\text{en otro caso} \\end{cases} \\quad \\forall\\, i \\in V\n\\]\n\\[\nx_{ij} \\geq 0, \\quad \\forall\\,(i,j) \\in A\n\\]\n\n\n\n\n\n\nTipIntegralidad natural\n\n\n\nLa matriz de restricciones de conservación de flujo es la matriz de incidencia del grafo dirigido, que es totalmente unimodular (Ahuja et al. 1993). Por lo tanto, la relajación LP produce soluciones enteras y no es necesario imponer \\(x_{ij} \\in \\{0,1\\}\\).\n\n\n\n\nAlgoritmo de Dijkstra y complejidad\nEl algoritmo de Dijkstra (Dijkstra 1959) resuelve el SPP desde un origen \\(s\\) asumiendo \\(c_{ij} \\geq 0\\). Su funcionamiento:\n\nInicializar \\(d[s] = 0\\) y \\(d[v] = \\infty\\) para todo \\(v \\neq s\\).\nExtraer de la cola de prioridad el nodo \\(u\\) con menor \\(d[u]\\).\nPara cada vecino \\(v\\) de \\(u\\): si \\(d[u] + c_{uv} &lt; d[v]\\), actualizar \\(d[v]\\) y \\(\\pi[v] = u\\).\nRepetir hasta vaciar la cola.\n\nComplejidad: \\(O(|V|^2)\\) con arreglo lineal; \\(O((|V|+|E|)\\log|V|)\\) con montículo binario; \\(O(|V|\\log|V| + |E|)\\) con montículo de Fibonacci (Fredman and Tarjan 1987). El SPP pertenece a la clase P (Cormen et al. 2009).\nPara grafos con pesos negativos (sin ciclos negativos), el algoritmo de Bellman-Ford (Bellman 1958) resuelve en \\(O(|V| \\cdot |E|)\\).\n\n\nEjemplo numérico resuelto\nAplicando Dijkstra desde \\(s = 1\\) en el grafo de ejemplo:\n\nEjecución paso a paso de Dijkstra.\n\n\nPaso\nNodo extraído\nRelajaciones\n\n\n\n\n1\nNodo 1 (\\(d=0\\))\n\\(d[2]=7\\), \\(d[4]=9\\), \\(d[5]=14\\)\n\n\n2\nNodo 2 (\\(d=7\\))\n\\(d[3]=17\\)\n\n\n3\nNodo 4 (\\(d=9\\))\n\\(d[5]=\\min(14,11)=11\\)\n\n\n4\nNodo 5 (\\(d=11\\))\n\\(d[6]=20\\)\n\n\n5\nNodo 3 (\\(d=17\\))\n\\(d[6]=\\min(20,28)=20\\)\n\n\n6\nNodo 6 (\\(d=20\\))\nFin\n\n\n\nResultado: Ruta óptima \\(1 \\to 4 \\to 5 \\to 6\\), costo \\(= 9 + 2 + 9 = 20\\). Verificado mediante LP con PuLP (costo \\(= 20{,}0\\)).\n\n\nAplicaciones en sistemas de información\n\nEnrutamiento en redes: protocolos OSPF usan Dijkstra para rutas óptimas en redes IP (Cormen et al. 2009).\nNavegación y logística: Google Maps resuelve millones de consultas SPP diariamente.\nRuta crítica: el camino más largo en un DAG es una variante directa del SPP.\nRedes sociales: la centralidad de intermediación requiere caminos más cortos entre pares."
+  },
+  {
+    "objectID": "parte2.html#problema-del-agente-viajero-tsp",
+    "href": "parte2.html#problema-del-agente-viajero-tsp",
+    "title": "Parte II: Modelos de Optimización Combinatoria",
+    "section": "Problema del Agente Viajero (TSP)",
+    "text": "Problema del Agente Viajero (TSP)\n\nDefinición y circuitos hamiltonianos\n\n\n\n\n\n\nNoteDefinición (TSP)\n\n\n\nDado un grafo completo \\(G = (V, E)\\) con \\(|V| = n\\) y costos \\(c_{ij} \\geq 0\\), el TSP busca un circuito hamiltoniano — un ciclo que visita cada nodo exactamente una vez — de costo mínimo.\n\n\nEl número de circuitos posibles es \\((n-1)!/2\\) (simétrico) o \\((n-1)!\\) (asimétrico), crecimiento factorial que impide enumeración exhaustiva para \\(n\\) grande (Applegate et al. 2006). El primer abordaje computacional significativo del TSP fue realizado por Dantzig et al. (1954), quienes resolvieron una instancia de 49 ciudades mediante planos de corte.\n\n\nFormulación matemática (MTZ)\nFormulación de Miller-Tucker-Zemlin (Miller et al. 1960):\nVariables: \\(x_{ij} \\in \\{0,1\\}\\) (arco en el tour); \\(u_i \\in \\mathbb{R}\\), \\(i = 2,\\ldots,n\\) (posición).\n\\[\n\\min \\sum_{i=1}^{n} \\sum_{\\substack{j=1 \\\\ j \\neq i}}^{n} c_{ij}\\,x_{ij}\n\\]\nRestricciones de grado:\n\\[\n\\sum_{\\substack{j=1 \\\\ j \\neq i}}^{n} x_{ij} = 1 \\quad \\forall\\,i \\qquad \\sum_{\\substack{i=1 \\\\ i \\neq j}}^{n} x_{ij} = 1 \\quad \\forall\\,j\n\\]\nEliminación de subtours (MTZ):\n\\[\nu_i - u_j + n\\,x_{ij} \\leq n - 1 \\quad \\forall\\, i,j = 2,\\ldots,n,\\; i \\neq j\n\\]\n\\[\n1 \\leq u_i \\leq n-1 \\quad \\forall\\, i = 2,\\ldots,n\n\\]\n\\[\nx_{ij} \\in \\{0,1\\}\n\\]\nLas restricciones de grado aseguran grado uno; las restricciones MTZ eliminan subtours. Las variables binarias son necesarias: la matriz no es totalmente unimodular.\n\n\nComplejidad computacional\n\n\n\n\n\n\nWarningTeorema\n\n\n\nEl TSP es NP-difícil (Papadimitriou and Steiglitz 1998). El algoritmo exacto más eficiente, la programación dinámica de Held-Karp (Held and Karp 1962), tiene complejidad \\(O(n^2 \\cdot 2^n)\\).\n\n\nPara instancias grandes se utilizan heurísticas: vecino más cercano \\(O(n^2)\\), mejoras locales 2-opt (Croes 1958) \\(O(n^2)\\) por iteración, metaheurísticas (genéticos, simulated annealing) (Laporte 1992). La formulación ILP requiere técnicas de programación entera (Wolsey 1998).\n\n\nEjemplo numérico resuelto\nTSP simétrico de 5 ciudades:\n\nMatriz de distancias para el TSP de 5 ciudades.\n\n\n\nA\nB\nC\nD\nE\n\n\n\n\nA\n—\n10\n15\n20\n6\n\n\nB\n10\n—\n8\n18\n12\n\n\nC\n15\n8\n—\n7\n14\n\n\nD\n20\n18\n7\n—\n12\n\n\nE\n6\n12\n14\n12\n—\n\n\n\nResultado: Tour óptimo \\(A \\to B \\to C \\to D \\to E \\to A\\), costo \\(= 10+8+7+12+6 = 43\\). Verificado por enumeración exhaustiva (24 tours) y PuLP.\n\n\nAplicaciones en sistemas de información\n\nLogística: rutas de entrega para flotas de vehículos (Applegate et al. 2006).\nFabricación de circuitos: optimización de taladros en PCB.\nSecuenciación genómica: reconstrucción de ADN como TSP sobre solapamientos (Laporte 1992).\nTelecomunicaciones: diseño de anillos de fibra óptica."
+  },
+  {
+    "objectID": "parte2.html#comparación-conceptual-y-computacional",
+    "href": "parte2.html#comparación-conceptual-y-computacional",
+    "title": "Parte II: Modelos de Optimización Combinatoria",
+    "section": "Comparación Conceptual y Computacional",
+    "text": "Comparación Conceptual y Computacional\n\nComparación entre SPP y TSP.\n\n\n\n\n\n\n\nAspecto\nRuta Más Corta (SPP)\nAgente Viajero (TSP)\n\n\n\n\nObjetivo\nCamino de costo mínimo \\(s \\to t\\)\nCircuito hamiltoniano mínimo\n\n\nFormulación\nPrograma Lineal (LP)\nPrograma Lineal Entero (ILP)\n\n\nIntegralidad\nAutomática (unimod. total)\nRequiere variables binarias\n\n\nComplejidad\nP: \\(O((V+E)\\log V)\\)\nNP-difícil: \\(O(n^2 \\cdot 2^n)\\)\n\n\nAlgoritmo\nDijkstra, Bellman-Ford\nBranch-and-Cut, heurísticas\n\n\nEscalabilidad\nMillones de nodos\nMiles de nodos\n\n\nRestricción clave\nConservación de flujo\nEliminación de subtours\n\n\n\nLa diferencia fundamental radica en la complejidad estructural: el SPP aprovecha la subestructura óptima (un subcamino óptimo es también óptimo), mientras el TSP impone una dependencia global (visitar todos los nodos) que impide descomposición eficiente. Computacionalmente, Dijkstra resuelve grafos de millones de nodos en milisegundos; el TSP exacto se vuelve impracticable más allá de decenas de nodos."
+  },
+  {
+    "objectID": "parte2.html#discusión",
+    "href": "parte2.html#discusión",
+    "title": "Parte II: Modelos de Optimización Combinatoria",
+    "section": "Discusión",
+    "text": "Discusión\nLa Parte II evidencia cómo la estructura combinatoria de un problema determina directamente su tratabilidad computacional. Mientras el SPP se formula como LP con integralidad garantizada y se resuelve en tiempo polinomial, el TSP requiere variables binarias y restricciones de eliminación de subtours, perteneciendo a la clase NP-difícil.\nLa implementación computacional completa — incluyendo Dijkstra desde cero, formulación LP/ILP con PuLP, heurísticas (vecino más cercano, 2-opt) y análisis de escalabilidad — se encuentra en la pestaña Simulaciones Parte II."
+  },
+  {
+    "objectID": "presentacion_parte2.html#agenda",
+    "href": "presentacion_parte2.html#agenda",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Agenda",
+    "text": "Agenda\n\nSPP — Definición y formulación LP\nDijkstra — Algoritmo e implementación\nTSP — Definición y formulación ILP (MTZ)\nImplementación — Exacta y heurísticas\nComparación — P vs NP-difícil\nConclusiones"
+  },
+  {
+    "objectID": "presentacion_parte2.html#definición-del-spp",
+    "href": "presentacion_parte2.html#definición-del-spp",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Definición del SPP",
+    "text": "Definición del SPP\n\n\nDado un grafo dirigido \\(G = (V, A)\\) con costos \\(c_{ij} \\geq 0\\), un origen \\(s\\) y un destino \\(t\\) [1], [2]:\n\nEncontrar el camino dirigido de \\(s\\) a \\(t\\) de costo total mínimo.\n\n\n\n\n\nAplicaciones\n\n\n\nProtocolos de red OSPF [3]\nNavegación GPS\nRuta crítica en proyectos\nCentralidad en redes sociales"
+  },
+  {
+    "objectID": "presentacion_parte2.html#formulación-lp",
+    "href": "presentacion_parte2.html#formulación-lp",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Formulación LP",
+    "text": "Formulación LP\n\\[\\min \\sum_{(i,j) \\in A} c_{ij}\\, x_{ij}\\]\n\nRestricciones de conservación de flujo:\n\\[\\sum_{j:(i,j)\\in A} x_{ij} - \\sum_{j:(j,i)\\in A} x_{ji} = \\begin{cases} 1 & i = s \\\\ -1 & i = t \\\\ 0 & \\text{otro caso} \\end{cases}\\]\n\n\n\n\n\nIntegralidad natural\n\n\nLa matriz de incidencia es totalmente unimodular [1] \\(\\Rightarrow\\) la relajación LP produce soluciones enteras automáticamente. No se requieren variables binarias [4]."
+  },
+  {
+    "objectID": "presentacion_parte2.html#algoritmo-de-dijkstra-dijkstra1959",
+    "href": "presentacion_parte2.html#algoritmo-de-dijkstra-dijkstra1959",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Algoritmo de Dijkstra [5]",
+    "text": "Algoritmo de Dijkstra [5]\n\n\nPseudocódigo:\n\n\\(d[s] \\leftarrow 0\\); \\(d[v] \\leftarrow \\infty\\) para \\(v \\neq s\\)\n\\(Q \\leftarrow V\\) (cola de prioridad)\nMientras \\(Q \\neq \\emptyset\\):\n\nExtraer \\(u = \\arg\\min_{v \\in Q} d[v]\\)\nPara cada \\((u,v) \\in A\\):\n\nSi \\(d[u] + c_{uv} &lt; d[v]\\):\n\n\\(d[v] \\leftarrow d[u] + c_{uv}\\)\n\n\n\n\n\n\nComplejidad:\n\n\n\nEstructura\nComplejidad\n\n\n\n\nArreglo lineal\n\\(O(|V|^2)\\)\n\n\nMontículo binario\n\\(O((|V|+|E|)\\log|V|)\\)\n\n\nFibonacci [6]\n\\(O(|V|\\log|V|+|E|)\\)\n\n\n\nEl SPP pertenece a la clase P [3]."
+  },
+  {
+    "objectID": "presentacion_parte2.html#implementación-dijkstra",
+    "href": "presentacion_parte2.html#implementación-dijkstra",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Implementación — Dijkstra",
+    "text": "Implementación — Dijkstra\n\nimport heapq\n\ndef dijkstra(graph, source):\n    dist = {n: float('inf') for n in graph}\n    prev = {n: None for n in graph}\n    dist[source] = 0\n    heap = [(0, source)]\n    visited = set()\n    while heap:\n        d_u, u = heapq.heappop(heap)\n        if u in visited: continue\n        visited.add(u)\n        for v, w in graph[u]:\n            if v not in visited and d_u + w &lt; dist[v]:\n                dist[v] = d_u + w\n                prev[v] = u\n                heapq.heappush(heap, (dist[v], v))\n    return dist, prev"
+  },
+  {
+    "objectID": "presentacion_parte2.html#ejecución-paso-a-paso",
+    "href": "presentacion_parte2.html#ejecución-paso-a-paso",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Ejecución paso a paso",
+    "text": "Ejecución paso a paso\n\n\nCode\ngraph = {1:[(2,7),(4,9),(5,14)], 2:[(3,10),(5,15)],\n         3:[(6,11)], 4:[(2,6),(5,2)], 5:[(6,9)], 6:[]}\n\ndist, prev = dijkstra(graph, 1)\n\npath = []\nn = 6\nwhile n: path.append(n); n = prev[n]\npath.reverse()\n\nprint('=== Dijkstra: nodo 1 → nodo 6 ===')\nprint(f'Ruta: {\" → \".join(map(str, path))}')\nprint(f'Costo: {dist[6]}')\nprint()\nfor node in sorted(dist):\n    print(f'  d[{node}] = {dist[node]}')\n\n\n=== Dijkstra: nodo 1 → nodo 6 ===\nRuta: 1 → 4 → 5 → 6\nCosto: 20\n\n  d[1] = 0\n  d[2] = 7\n  d[3] = 17\n  d[4] = 9\n  d[5] = 11\n  d[6] = 20"
+  },
+  {
+    "objectID": "presentacion_parte2.html#dijkstra-paso-a-paso-13",
+    "href": "presentacion_parte2.html#dijkstra-paso-a-paso-13",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Dijkstra paso a paso (1/3)",
+    "text": "Dijkstra paso a paso (1/3)"
+  },
+  {
+    "objectID": "presentacion_parte2.html#dijkstra-paso-a-paso-23",
+    "href": "presentacion_parte2.html#dijkstra-paso-a-paso-23",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Dijkstra paso a paso (2/3)",
+    "text": "Dijkstra paso a paso (2/3)"
+  },
+  {
+    "objectID": "presentacion_parte2.html#dijkstra-paso-a-paso-33-resultado",
+    "href": "presentacion_parte2.html#dijkstra-paso-a-paso-33-resultado",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Dijkstra paso a paso (3/3) — Resultado",
+    "text": "Dijkstra paso a paso (3/3) — Resultado"
+  },
+  {
+    "objectID": "presentacion_parte2.html#verificación-lp-con-pulp",
+    "href": "presentacion_parte2.html#verificación-lp-con-pulp",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Verificación LP con PuLP",
+    "text": "Verificación LP con PuLP\n\n\nCode\nfrom pulp import LpProblem, LpMinimize, LpVariable, LpContinuous, lpSum, value\n\nprob = LpProblem('SPP', LpMinimize)\narcs = [(1,2,7),(1,4,9),(1,5,14),(2,3,10),(2,5,15),\n        (3,6,11),(4,2,6),(4,5,2),(5,6,9)]\nx = {(u,v): LpVariable(f'x_{u}_{v}', 0, cat=LpContinuous) for u,v,_ in arcs}\n\nprob += lpSum(w*x[(u,v)] for u,v,w in arcs)\n\nnodes_all = {1,2,3,4,5,6}\nfor i in nodes_all:\n    out = lpSum(x[(u,v)] for u,v,_ in arcs if u==i)\n    inp = lpSum(x[(u,v)] for u,v,_ in arcs if v==i)\n    if i==1: prob += out - inp == 1\n    elif i==6: prob += out - inp == -1\n    else: prob += out - inp == 0\n\nprob.solve()\nprint(f'LP costo óptimo: {value(prob.objective):.0f}')\nprint('Arcos activos:')\nfor (u,v), var in x.items():\n    if var.varValue and var.varValue &gt; 0.5:\n        print(f'  {u} → {v}')\nprint(f'\\nCoincide con Dijkstra: costo = {dist[6]}')\n\n\nLP costo óptimo: 20\nArcos activos:\n  1 → 4\n  4 → 5\n  5 → 6\n\nCoincide con Dijkstra: costo = 20"
+  },
+  {
+    "objectID": "presentacion_parte2.html#definición-del-tsp",
+    "href": "presentacion_parte2.html#definición-del-tsp",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Definición del TSP",
+    "text": "Definición del TSP\n\n\nDado un grafo completo con \\(n\\) nodos y costos \\(c_{ij}\\):\nEncontrar un circuito hamiltoniano de costo mínimo (visita cada nodo exactamente una vez) [7].\n\nTours posibles:\n\nSimétrico: \\((n-1)!/2\\)\n5 ciudades: \\(12\\) tours\n20 ciudades: \\(\\approx 6 \\times 10^{16}\\)\n\nPrimer abordaje computacional: [8] (49 ciudades)."
+  },
+  {
+    "objectID": "presentacion_parte2.html#formulación-mtz-miller1960",
+    "href": "presentacion_parte2.html#formulación-mtz-miller1960",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Formulación MTZ [9]",
+    "text": "Formulación MTZ [9]\n\\[\\min \\sum_{i=1}^{n}\\sum_{\\substack{j=1\\\\j\\neq i}}^{n} c_{ij}\\,x_{ij}\\]\n\nRestricciones de grado (salir/entrar exactamente una vez): \\[\\sum_{\\substack{j=1\\\\j\\neq i}}^{n} x_{ij} = 1 \\;\\forall\\,i \\qquad \\sum_{\\substack{i=1\\\\i\\neq j}}^{n} x_{ij} = 1 \\;\\forall\\,j\\]\n\n\nEliminación de subtours (MTZ): \\[u_i - u_j + n\\,x_{ij} \\leq n-1 \\quad \\forall\\,i,j = 2,\\ldots,n,\\; i \\neq j\\]\n\n\nVariables: \\(x_{ij} \\in \\{0,1\\}\\), \\(\\;1 \\leq u_i \\leq n-1\\) — Requiere ILP [10]"
+  },
+  {
+    "objectID": "presentacion_parte2.html#spp-vs-tsp-diferencia-clave",
+    "href": "presentacion_parte2.html#spp-vs-tsp-diferencia-clave",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "SPP vs TSP — Diferencia clave",
+    "text": "SPP vs TSP — Diferencia clave\n\n\nSPP (Ruta Más Corta)\n\nVariables continuas \\(x_{ij} \\geq 0\\)\nMatriz totalmente unimodular\nIntegralidad automática\nClase P\n\n\n\n\nConsecuencia\n\n\nSe resuelve como LP estándar, sin necesidad de branch-and-bound.\n\n\n\n\nTSP (Agente Viajero)\n\nVariables binarias \\(x_{ij} \\in \\{0,1\\}\\)\nMatriz NO unimodular\nRequiere eliminación de subtours\nClase NP-difícil [11]\n\n\n\n\nConsecuencia\n\n\nRequiere ILP con métodos exponenciales [12] o heurísticas [13]."
+  },
+  {
+    "objectID": "presentacion_parte2.html#solución-exacta-mtz-con-pulp",
+    "href": "presentacion_parte2.html#solución-exacta-mtz-con-pulp",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Solución exacta — MTZ con PuLP",
+    "text": "Solución exacta — MTZ con PuLP\n\nfrom pulp import LpMaximize, LpBinary, LpStatus\n\ndm = np.array([[0,10,15,20,6],[10,0,8,18,12],\n               [15,8,0,7,14],[20,18,7,0,12],[6,12,14,12,0]])\ncities_l = ['A','B','C','D','E']; nc = 5\n\nprob = LpProblem('TSP', LpMinimize)\nxv = {(i,j): LpVariable(f't_{i}_{j}', cat=LpBinary)\n      for i in range(nc) for j in range(nc) if i!=j}\nuv = {i: LpVariable(f'u_{i}', 1, nc-1) for i in range(1,nc)}\n\nprob += lpSum(dm[i][j]*xv[i,j] for i in range(nc) for j in range(nc) if i!=j)\nfor i in range(nc):\n    prob += lpSum(xv[i,j] for j in range(nc) if j!=i) == 1\n    prob += lpSum(xv[j,i] for j in range(nc) if j!=i) == 1\nfor i in range(1,nc):\n    for j in range(1,nc):\n        if i!=j: prob += uv[i]-uv[j]+nc*xv[i,j] &lt;= nc-1\n\nprob.solve()\n\n1"
+  },
+  {
+    "objectID": "presentacion_parte2.html#resultado-tsp",
+    "href": "presentacion_parte2.html#resultado-tsp",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Resultado TSP",
+    "text": "Resultado TSP\n\n\nCode\ntour_r = [0]; cur = 0\nfor _ in range(nc-1):\n    for j in range(nc):\n        if j!=cur and (cur,j) in xv and xv[cur,j].varValue &gt; 0.5:\n            tour_r.append(j); cur = j; break\ntour_r.append(0)\n\ncost = value(prob.objective)\nnames = [cities_l[i] for i in tour_r]\nprint(f'Tour óptimo: {\" → \".join(names)}')\nprint(f'Costo: {int(cost)}')\n\n\nTour óptimo: A → B → C → D → E → A\nCosto: 43\n\n\n\nVerificación por enumeración exhaustiva:\n\n\nCode\nimport itertools\n\ndef tour_cost(t, d):\n    return sum(d[t[i]][t[i+1]] for i in range(len(t)-1))\n\nall_t = [[0]+list(p)+[0] for p in itertools.permutations(range(1,nc))]\ncosts = sorted([(tour_cost(t,dm), t) for t in all_t])\n\nprint(f'Total tours: {len(all_t)} ({len(all_t)//2} únicos)')\nprint(f'Óptimo confirmado: costo = {costs[0][0]}')\nprint(f'Peor tour: costo = {costs[-1][0]}')\n\n\nTotal tours: 24 (12 únicos)\nÓptimo confirmado: costo = 43\nPeor tour: costo = 79"
+  },
+  {
+    "objectID": "presentacion_parte2.html#tsp-paso-a-paso-vecino-más-cercano",
+    "href": "presentacion_parte2.html#tsp-paso-a-paso-vecino-más-cercano",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "TSP paso a paso — Vecino más cercano",
+    "text": "TSP paso a paso — Vecino más cercano"
+  },
+  {
+    "objectID": "presentacion_parte2.html#tsp-paso-a-paso-mejora-2-opt",
+    "href": "presentacion_parte2.html#tsp-paso-a-paso-mejora-2-opt",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "TSP paso a paso — Mejora 2-opt",
+    "text": "TSP paso a paso — Mejora 2-opt"
+  },
+  {
+    "objectID": "presentacion_parte2.html#heurísticas-vecino-más-cercano-2-opt-croes1958",
+    "href": "presentacion_parte2.html#heurísticas-vecino-más-cercano-2-opt-croes1958",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Heurísticas: Vecino más cercano + 2-opt [14]",
+    "text": "Heurísticas: Vecino más cercano + 2-opt [14]\n\n\nCode\ndef nn_tsp(dm, start=0):\n    n = len(dm); vis = {start}; tour = [start]; cur = start; cost = 0\n    while len(vis) &lt; n:\n        best = min((j for j in range(n) if j not in vis), key=lambda j: dm[cur][j])\n        cost += dm[cur][best]; vis.add(best); tour.append(best); cur = best\n    cost += dm[cur][start]; tour.append(start)\n    return tour, cost\n\ndef two_opt(tour, dm):\n    n = len(tour)-1; improved = True; best = list(tour)\n    while improved:\n        improved = False\n        for i in range(1, n-1):\n            for j in range(i+1, n):\n                new = best[:i]+best[i:j+1][::-1]+best[j+1:]\n                if tour_cost(new, dm) &lt; tour_cost(best, dm):\n                    best = new; improved = True\n    return best, tour_cost(best, dm)\n\nt_nn, c_nn = nn_tsp(dm)\nt_2opt, c_2opt = two_opt(t_nn, dm)\n\nprint(f'Vecino más cercano: {\" → \".join(cities_l[i] for i in t_nn)} = {c_nn}')\nprint(f'Después de 2-opt:   {\" → \".join(cities_l[i] for i in t_2opt)} = {c_2opt}')\nprint(f'Óptimo exacto:      {int(cost)}')\nprint(f'Gap NN: {(c_nn-cost)/cost*100:.1f}%  |  Gap 2-opt: {(c_2opt-cost)/cost*100:.1f}%')\n\n\nVecino más cercano: A → E → B → C → D → A = 53\nDespués de 2-opt:   A → E → D → C → B → A = 43\nÓptimo exacto:      43\nGap NN: 23.3%  |  Gap 2-opt: 0.0%"
+  },
+  {
+    "objectID": "presentacion_parte2.html#escalabilidad-dijkstra-vs-mtz",
+    "href": "presentacion_parte2.html#escalabilidad-dijkstra-vs-mtz",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Escalabilidad: Dijkstra vs MTZ",
+    "text": "Escalabilidad: Dijkstra vs MTZ\n\n\nCode\nimport time\n\nsizes_spp = [10, 50, 100, 500, 1000]\ntimes_spp = []\nfor n_s in sizes_spp:\n    adj = {i:[] for i in range(n_s)}\n    rng = np.random.default_rng(42)\n    for i in range(n_s-1):\n        adj[i].append((i+1, int(rng.integers(1,20))))\n    for i in range(n_s):\n        for j in range(n_s):\n            if i!=j and j!=i+1 and rng.random()&lt;0.1:\n                adj[i].append((j, int(rng.integers(1,20))))\n    t0 = time.perf_counter()\n    dijkstra(adj, 0)\n    times_spp.append(time.perf_counter()-t0)\n\nfrom pulp import PULP_CBC_CMD\nsizes_tsp = [5, 8, 10]\ntimes_tsp = []\nfor n_t in sizes_tsp:\n    coords = np.random.default_rng(42).random((n_t,2))*100\n    d = np.zeros((n_t,n_t))\n    for i in range(n_t):\n        for j in range(n_t):\n            d[i][j] = np.sqrt((coords[i][0]-coords[j][0])**2+(coords[i][1]-coords[j][1])**2)\n    t0 = time.perf_counter()\n    p = LpProblem(f'T{n_t}', LpMinimize)\n    xv2 = {(i,j):LpVariable(f'z{n_t}_{i}_{j}',cat=LpBinary) for i in range(n_t) for j in range(n_t) if i!=j}\n    uv2 = {i:LpVariable(f'w{n_t}_{i}',1,n_t-1) for i in range(1,n_t)}\n    p += lpSum(d[i][j]*xv2[i,j] for i in range(n_t) for j in range(n_t) if i!=j)\n    for i in range(n_t):\n        p += lpSum(xv2[i,j] for j in range(n_t) if j!=i)==1\n        p += lpSum(xv2[j,i] for j in range(n_t) if j!=i)==1\n    for i in range(1,n_t):\n        for j in range(1,n_t):\n            if i!=j: p += uv2[i]-uv2[j]+n_t*xv2[i,j]&lt;=n_t-1\n    p.solve(PULP_CBC_CMD(msg=0))\n    times_tsp.append(time.perf_counter()-t0)\n\nfig, ax = plt.subplots(figsize=(10, 4.5))\nfig.set_facecolor('#1a1a2e')\nax.set_facecolor('#1a1a2e')\n\nax.semilogy(sizes_spp, [t*1000 for t in times_spp], 'o-',\n            color='#4fc3f7', lw=2, markersize=8, label='Dijkstra (SPP)')\nax.semilogy(sizes_tsp, [t*1000 for t in times_tsp], 's-',\n            color='#e94560', lw=2, markersize=8, label='MTZ exacto (TSP)')\n\nax.set_xlabel('Nodos / Ciudades', color='white', fontsize=11)\nax.set_ylabel('Tiempo (ms)', color='white', fontsize=11)\nax.tick_params(colors='white')\nfor sp in ax.spines.values(): sp.set_color('#333')\nax.grid(alpha=0.15, color='white')\nax.legend(fontsize=10)\nplt.tight_layout()\nplt.show()"
+  },
+  {
+    "objectID": "presentacion_parte2.html#spp-vs-tsp-resumen",
+    "href": "presentacion_parte2.html#spp-vs-tsp-resumen",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "SPP vs TSP — Resumen",
+    "text": "SPP vs TSP — Resumen"
+  },
+  {
+    "objectID": "presentacion_parte2.html#conclusiones",
+    "href": "presentacion_parte2.html#conclusiones",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Conclusiones",
+    "text": "Conclusiones\n\n\nHallazgos principales\n\nSPP: resoluble en tiempo polinomial [5], formulación LP con integralidad natural [1]\nTSP: NP-difícil [11], requiere ILP con eliminación de subtours [9]\nLa estructura combinatoria determina la tratabilidad [15]\nDijkstra: millones de nodos en ms; TSP exacto: impracticable \\(&gt; 20\\) nodos\n\n\nImplicaciones prácticas\n\nPara rutas punto a punto: algoritmos exactos eficientes (Dijkstra)\nPara rutas hamiltonianas: heurísticas + métodos exactos limitados\n2-opt [14] logra gaps \\(&lt; 10\\%\\) en la mayoría de instancias\nEstado del arte (Concorde) [7]: resuelve TSP hasta \\(\\sim 85{.}000\\) ciudades"
+  },
+  {
+    "objectID": "presentacion_parte2.html#section",
+    "href": "presentacion_parte2.html#section",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "",
+    "text": "Gracias\n\n\nOptimización Combinatoria: SPP y TSP — Parte II\nTópicos Especiales 1 · Doctorado en Informática\nEscuela Politécnica Nacional · 2026"
+  },
+  {
+    "objectID": "presentacion_parte2.html#referencias",
+    "href": "presentacion_parte2.html#referencias",
+    "title": "Optimización Combinatoria: SPP y TSP",
+    "section": "Referencias",
+    "text": "Referencias\n\n\n[1] R. K. Ahuja, T. L. Magnanti, and J. B. Orlin, Network flows: Theory, algorithms, and applications. Prentice Hall, 1993.\n\n\n[2] M. S. Bazaraa, J. J. Jarvis, and H. D. Sherali, Linear programming and network flows, 4th ed. John Wiley & Sons, 2010.\n\n\n[3] T. H. Cormen, C. E. Leiserson, R. L. Rivest, and C. Stein, Introduction to algorithms, 3rd ed. MIT Press, 2009.\n\n\n[4] D. Bertsimas and J. N. Tsitsiklis, Introduction to linear optimization. Belmont, MA: Athena Scientific, 1997.\n\n\n[5] E. W. Dijkstra, “A note on two problems in connexion with graphs,” Numerische Mathematik, vol. 1, no. 1, pp. 269–271, 1959, doi: 10.1007/BF01386390.\n\n\n[6] M. L. Fredman and R. E. Tarjan, “Fibonacci heaps and their uses in improved network optimization algorithms,” Journal of the ACM, vol. 34, no. 3, pp. 596–615, 1987, doi: 10.1145/28869.28874.\n\n\n[7] D. L. Applegate, R. E. Bixby, V. Chvátal, and W. J. Cook, The traveling salesman problem: A computational study. Princeton University Press, 2006.\n\n\n[8] G. B. Dantzig, D. R. Fulkerson, and S. M. Johnson, “Solution of a large-scale traveling-salesman problem,” Operations Research, vol. 2, no. 4, pp. 393–410, 1954, doi: 10.1287/opre.2.4.393.\n\n\n[9] C. E. Miller, A. W. Tucker, and R. A. Zemlin, “Integer programming formulation of traveling salesman problems,” Journal of the ACM, vol. 7, no. 4, pp. 326–329, 1960, doi: 10.1145/321043.321046.\n\n\n[10] L. A. Wolsey, Integer programming. John Wiley & Sons, 1998.\n\n\n[11] C. H. Papadimitriou and K. Steiglitz, Combinatorial optimization: Algorithms and complexity. Dover Publications, 1998.\n\n\n[12] M. Held and R. M. Karp, “A dynamic programming approach to sequencing problems,” Journal of the Society for Industrial and Applied Mathematics, vol. 10, no. 1, pp. 196–210, 1962, doi: 10.1137/0110015.\n\n\n[13] G. Laporte, “The traveling salesman problem: An overview of exact and approximate algorithms,” European Journal of Operational Research, vol. 59, no. 2, pp. 231–247, 1992, doi: 10.1016/0377-2217(92)90138-Y.\n\n\n[14] G. A. Croes, “A method for solving traveling-salesman problems,” Operations Research, vol. 6, no. 6, pp. 791–812, 1958, doi: 10.1287/opre.6.6.791.\n\n\n[15] A. Schrijver, Combinatorial optimization: Polyhedra and efficiency, vol. 24. in Algorithms and combinatorics, vol. 24. Springer, 2003."
+  }
+]

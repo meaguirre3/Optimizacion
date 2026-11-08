@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Formulación y resolución de un modelo LP/ILP para la selección óptima de preguntas en un chatbot conversacional, con implementación en scipy y PuLP.">
+
+<title>Parte I: Modelo de Programación Lineal – Tópicos Especiales 1</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-172ba59bd5e0b52282274ba0c0cc16fc.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Tópicos Especiales 1</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="./index.html"> 
+<span class="menu-text">Inicio</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-parte-i" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Parte I</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-parte-i">    
+        <li>
+    <a class="dropdown-item" href="./parte1.html">
+ <span class="dropdown-text">Reporte</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./presentacion_parte1.html">
+ <span class="dropdown-text">Presentación</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./parte1_implementacion.html">
+ <span class="dropdown-text">Implementación</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-parte-ii" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Parte II</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-parte-ii">    
+        <li>
+    <a class="dropdown-item" href="./parte2.html">
+ <span class="dropdown-text">Reporte</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./presentacion_parte2.html">
+ <span class="dropdown-text">Presentación</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./simulaciones_parte2.html">
+ <span class="dropdown-text">Simulaciones</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="./about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#contexto-y-justificación" id="toc-contexto-y-justificación" class="nav-link active" data-scroll-target="#contexto-y-justificación">Contexto y justificación</a></li>
+  <li><a href="#definición-del-problema" id="toc-definición-del-problema" class="nav-link" data-scroll-target="#definición-del-problema">Definición del problema</a></li>
+  <li><a href="#parámetros-del-modelo" id="toc-parámetros-del-modelo" class="nav-link" data-scroll-target="#parámetros-del-modelo">Parámetros del modelo</a></li>
+  <li><a href="#formulación-matemática" id="toc-formulación-matemática" class="nav-link" data-scroll-target="#formulación-matemática">Formulación matemática</a>
+  <ul class="collapse">
+  <li><a href="#modelo-de-planificación-continuo-programa-lineal" id="toc-modelo-de-planificación-continuo-programa-lineal" class="nav-link" data-scroll-target="#modelo-de-planificación-continuo-programa-lineal">Modelo de planificación continuo (Programa Lineal)</a></li>
+  <li><a href="#extensión-binaria-programa-lineal-entero" id="toc-extensión-binaria-programa-lineal-entero" class="nav-link" data-scroll-target="#extensión-binaria-programa-lineal-entero">Extensión binaria (Programa Lineal Entero)</a></li>
+  </ul></li>
+  <li><a href="#implementación-y-resultados" id="toc-implementación-y-resultados" class="nav-link" data-scroll-target="#implementación-y-resultados">Implementación y resultados</a>
+  <ul class="collapse">
+  <li><a href="#solución-del-modelo-continuo-lp" id="toc-solución-del-modelo-continuo-lp" class="nav-link" data-scroll-target="#solución-del-modelo-continuo-lp">Solución del modelo continuo (LP)</a></li>
+  <li><a href="#solución-del-modelo-binario-ilp" id="toc-solución-del-modelo-binario-ilp" class="nav-link" data-scroll-target="#solución-del-modelo-binario-ilp">Solución del modelo binario (ILP)</a></li>
+  </ul></li>
+  <li><a href="#análisis-de-sensibilidad" id="toc-análisis-de-sensibilidad" class="nav-link" data-scroll-target="#análisis-de-sensibilidad">Análisis de sensibilidad</a></li>
+  <li><a href="#discusión-crítica" id="toc-discusión-crítica" class="nav-link" data-scroll-target="#discusión-crítica">Discusión crítica</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Parte I: Modelo de Programación Lineal</h1>
+<p class="subtitle lead">Vinculado con la Tesis Doctoral</p>
+  <div class="quarto-categories">
+    <div class="quarto-category">Parte I</div>
+    <div class="quarto-category">Reporte</div>
+    <div class="quarto-category">LP</div>
+    <div class="quarto-category">ILP</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Formulación y resolución de un modelo LP/ILP para la selección óptima de preguntas en un chatbot conversacional, con implementación en scipy y PuLP.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="contexto-y-justificación" class="level2">
+<h2 class="anchored" data-anchor-id="contexto-y-justificación">Contexto y justificación</h2>
+<p>La investigación doctoral <strong>“Agentic Conversational User Modeling Framework for Question Recommendation”</strong> propone un framework basado en agentes de inteligencia artificial para la generación, evaluación y recomendación contextual de preguntas en sistemas conversacionales.</p>
+<p>Los sistemas de recomendación conversacionales establecen interacciones dinámicas con los usuarios mediante preguntas y respuestas para identificar necesidades y preferencias <span class="citation" data-cites="jannach2021survey christakopoulou2016towards gao2021advances">(<a href="#ref-jannach2021survey" role="doc-biblioref">Jannach et al. 2021</a>; <a href="#ref-christakopoulou2016towards" role="doc-biblioref">Christakopoulou et al. 2016</a>; <a href="#ref-gao2021advances" role="doc-biblioref">Gao et al. 2021</a>)</span>. Actualmente, los modelos de lenguaje de gran tamaño (LLM) pueden generar múltiples preguntas a partir del contexto de interacción <span class="citation" data-cites="sun2018conversational">(<a href="#ref-sun2018conversational" role="doc-biblioref">Sun and Zhang 2018</a>)</span>; sin embargo, presentar demasiadas preguntas aumenta la carga cognitiva y afecta negativamente la experiencia del usuario <span class="citation" data-cites="zhang2018towards lei2020interactive">(<a href="#ref-zhang2018towards" role="doc-biblioref">Zhang et al. 2018</a>; <a href="#ref-lei2020interactive" role="doc-biblioref">Lei et al. 2020</a>)</span>.</p>
+<p>Uno de los desafíos centrales consiste en seleccionar un conjunto limitado de preguntas que maximice la relevancia y la ganancia de información esperada, respetando restricciones de carga cognitiva, latencia y diversidad de propósitos conversacionales. Este problema de decisión admite formulación como programa lineal.</p>
+</section>
+<section id="definición-del-problema" class="level2">
+<h2 class="anchored" data-anchor-id="definición-del-problema">Definición del problema</h2>
+<p>Una empresa tecnológica desarrolla un chatbot inteligente que recomienda preguntas iniciales al usuario. El sistema dispone de agentes de IA que analizan contenido, generan preguntas candidatas y estiman indicadores de calidad. Se establece que el chatbot no debe presentar más de cuatro preguntas en su interfaz inicial.</p>
+<p>El sistema genera <span class="math inline">\(n = 9\)</span> preguntas candidatas clasificadas en tres categorías:</p>
+<ul>
+<li><strong>Clarificación (<span class="math inline">\(C\)</span>):</strong> preguntas que precisan información del contenido.</li>
+<li><strong>Preferencias (<span class="math inline">\(P\)</span>):</strong> preguntas que personalizan la exploración según intereses.</li>
+<li><strong>Objetivos (<span class="math inline">\(O\)</span>):</strong> preguntas que profundizan en el conocimiento.</li>
+</ul>
+<p>Cada pregunta <span class="math inline">\(i\)</span> tiene asociados cuatro parámetros: relevancia <span class="math inline">\(r_i\)</span>, ganancia de información <span class="math inline">\(g_i\)</span>, carga cognitiva <span class="math inline">\(a_i\)</span> y latencia <span class="math inline">\(\ell_i\)</span>.</p>
+<p><strong>Decisiones:</strong> qué preguntas recomendar al inicio de la conversación.</p>
+<p><strong>Objetivo:</strong> maximizar la utilidad total de las preguntas seleccionadas.</p>
+<p><strong>Restricciones:</strong> máximo de preguntas, presupuesto de carga cognitiva, presupuesto de latencia y cobertura mínima por categoría.</p>
+</section>
+<section id="parámetros-del-modelo" class="level2">
+<h2 class="anchored" data-anchor-id="parámetros-del-modelo">Parámetros del modelo</h2>
+<p>La utilidad de cada pregunta se calcula mediante:</p>
+<p><span class="math display">\[
+u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
+\]</span></p>
+<table class="table-striped table-hover caption-top table">
+<caption>Parámetros de las preguntas candidatas (datos sintéticos normalizados).</caption>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Pregunta</th>
+<th style="text-align: center;">Categoría</th>
+<th style="text-align: center;"><span class="math inline">\(r_i\)</span></th>
+<th style="text-align: center;"><span class="math inline">\(g_i\)</span></th>
+<th style="text-align: center;"><span class="math inline">\(a_i\)</span></th>
+<th style="text-align: center;"><span class="math inline">\(\ell_i\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(Q_1\)</span></td>
+<td style="text-align: center;">Clarificación</td>
+<td style="text-align: center;">0.90</td>
+<td style="text-align: center;">0.90</td>
+<td style="text-align: center;">1.60</td>
+<td style="text-align: center;">0.75</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><span class="math inline">\(Q_2\)</span></td>
+<td style="text-align: center;">Clarificación</td>
+<td style="text-align: center;">0.80</td>
+<td style="text-align: center;">0.72</td>
+<td style="text-align: center;">1.10</td>
+<td style="text-align: center;">0.55</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(Q_3\)</span></td>
+<td style="text-align: center;">Clarificación</td>
+<td style="text-align: center;">0.72</td>
+<td style="text-align: center;">0.78</td>
+<td style="text-align: center;">0.95</td>
+<td style="text-align: center;">0.70</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><span class="math inline">\(Q_4\)</span></td>
+<td style="text-align: center;">Preferencias</td>
+<td style="text-align: center;">0.89</td>
+<td style="text-align: center;">0.84</td>
+<td style="text-align: center;">1.40</td>
+<td style="text-align: center;">0.80</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(Q_5\)</span></td>
+<td style="text-align: center;">Preferencias</td>
+<td style="text-align: center;">0.80</td>
+<td style="text-align: center;">0.76</td>
+<td style="text-align: center;">1.10</td>
+<td style="text-align: center;">0.45</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><span class="math inline">\(Q_6\)</span></td>
+<td style="text-align: center;">Preferencias</td>
+<td style="text-align: center;">0.70</td>
+<td style="text-align: center;">0.67</td>
+<td style="text-align: center;">0.85</td>
+<td style="text-align: center;">0.40</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(Q_7\)</span></td>
+<td style="text-align: center;">Objetivos</td>
+<td style="text-align: center;">0.92</td>
+<td style="text-align: center;">0.88</td>
+<td style="text-align: center;">1.70</td>
+<td style="text-align: center;">1.00</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><span class="math inline">\(Q_8\)</span></td>
+<td style="text-align: center;">Objetivos</td>
+<td style="text-align: center;">0.77</td>
+<td style="text-align: center;">0.80</td>
+<td style="text-align: center;">1.20</td>
+<td style="text-align: center;">0.65</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(Q_9\)</span></td>
+<td style="text-align: center;">Objetivos</td>
+<td style="text-align: center;">0.75</td>
+<td style="text-align: center;">0.68</td>
+<td style="text-align: center;">0.85</td>
+<td style="text-align: center;">0.50</td>
+</tr>
+</tbody>
+</table>
+<p>Parámetros del sistema: máximo de preguntas <span class="math inline">\(M=4\)</span>, presupuesto de carga cognitiva <span class="math inline">\(B=4{,}70\)</span>, presupuesto de latencia <span class="math inline">\(L=2{,}80\)</span>, cobertura mínima por categoría <span class="math inline">\(m_k=0{,}70\)</span>.</p>
+</section>
+<section id="formulación-matemática" class="level2">
+<h2 class="anchored" data-anchor-id="formulación-matemática">Formulación matemática</h2>
+<section id="modelo-de-planificación-continuo-programa-lineal" class="level3">
+<h3 class="anchored" data-anchor-id="modelo-de-planificación-continuo-programa-lineal">Modelo de planificación continuo (Programa Lineal)</h3>
+<p>Sea <span class="math inline">\(x_i \in [0,1]\)</span> la proporción esperada de sesiones en las que se recomienda la pregunta <span class="math inline">\(i\)</span>.</p>
+<p><strong>Conjuntos e índices:</strong></p>
+<ul>
+<li><span class="math inline">\(I = \{1, 2, \ldots, 9\}\)</span>: conjunto de preguntas candidatas.</li>
+<li><span class="math inline">\(K = \{C, P, O\}\)</span>: conjunto de categorías.</li>
+<li><span class="math inline">\(I_k \subseteq I\)</span>: subconjunto de preguntas de la categoría <span class="math inline">\(k\)</span>.</li>
+</ul>
+<p><strong>Parámetros:</strong> <span class="math inline">\(r_i\)</span>, <span class="math inline">\(g_i\)</span>, <span class="math inline">\(a_i\)</span>, <span class="math inline">\(\ell_i\)</span>; <span class="math inline">\(M=4\)</span>, <span class="math inline">\(B=4{,}70\)</span>, <span class="math inline">\(L=2{,}80\)</span>, <span class="math inline">\(m_k=0{,}70\)</span>.</p>
+<p><strong>Función objetivo:</strong></p>
+<p><span class="math display">\[
+\max\; Z = \sum_{i=1}^{9} \bigl(0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i\bigr)\,x_i
+\]</span></p>
+<p><strong>Restricciones:</strong></p>
+<p><span class="math display">\[
+\sum_{i=1}^{9} x_i \leq 4 \qquad \text{(máximo de preguntas)}
+\]</span></p>
+<p><span class="math display">\[
+\sum_{i=1}^{9} a_i\,x_i \leq 4{,}70 \qquad \text{(presupuesto de carga cognitiva)}
+\]</span></p>
+<p><span class="math display">\[
+\sum_{i=1}^{9} \ell_i\,x_i \leq 2{,}80 \qquad \text{(presupuesto de latencia)}
+\]</span></p>
+<p><span class="math display">\[
+\sum_{i \in I_k} x_i \geq 0{,}70 \qquad \forall\, k \in \{C, P, O\} \quad \text{(cobertura)}
+\]</span></p>
+<p><span class="math display">\[
+0 \leq x_i \leq 1 \qquad \forall\, i \in I
+\]</span></p>
+<p>Este modelo es <strong>completamente lineal</strong>: la función objetivo es lineal en <span class="math inline">\(x_i\)</span>, y todas las restricciones son desigualdades lineales. Se resuelve con <a href="./parte1_implementacion.html"><code>scipy.optimize.linprog</code></a>.</p>
+</section>
+<section id="extensión-binaria-programa-lineal-entero" class="level3">
+<h3 class="anchored" data-anchor-id="extensión-binaria-programa-lineal-entero">Extensión binaria (Programa Lineal Entero)</h3>
+<p>Para cumplir la condición empresarial de seleccionar exactamente hasta cuatro preguntas concretas, se introduce la variable binaria:</p>
+<p><span class="math display">\[
+y_i \in \{0, 1\}, \quad
+y_i = \begin{cases} 1 &amp; \text{si se recomienda la pregunta } i, \\ 0 &amp; \text{en caso contrario.} \end{cases}
+\]</span></p>
+<p>Se sustituye <span class="math inline">\(x_i\)</span> por <span class="math inline">\(y_i\)</span> en las ecuaciones del modelo continuo, y el dominio pasa a ser binario. Esta formulación es de <strong>programación lineal entera binaria</strong> (PLIB) y se resuelve con PuLP.</p>
+</section>
+</section>
+<section id="implementación-y-resultados" class="level2">
+<h2 class="anchored" data-anchor-id="implementación-y-resultados">Implementación y resultados</h2>
+<section id="solución-del-modelo-continuo-lp" class="level3">
+<h3 class="anchored" data-anchor-id="solución-del-modelo-continuo-lp">Solución del modelo continuo (LP)</h3>
+<p>La solución óptima del LP, obtenida con <code>scipy.optimize.linprog</code>, alcanza una utilidad de <span class="math inline">\(Z^* \approx 2{,}8348\)</span>, con asignaciones fraccionarias que distribuyen la recomendación entre más de cuatro preguntas.</p>
+</section>
+<section id="solución-del-modelo-binario-ilp" class="level3">
+<h3 class="anchored" data-anchor-id="solución-del-modelo-binario-ilp">Solución del modelo binario (ILP)</h3>
+<p>La solución óptima del ILP selecciona las preguntas <span class="math inline">\(Q_3\)</span>, <span class="math inline">\(Q_4\)</span>, <span class="math inline">\(Q_5\)</span> y <span class="math inline">\(Q_8\)</span>:</p>
+<table class="table-striped table-hover caption-top table">
+<caption>Solución óptima del modelo binario.</caption>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Pregunta</th>
+<th style="text-align: center;">Utilidad <span class="math inline">\(u_i\)</span></th>
+<th style="text-align: center;">Decisión</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(Q_3\)</span></td>
+<td style="text-align: center;">0.6710</td>
+<td style="text-align: center;">Seleccionada</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><span class="math inline">\(Q_4\)</span></td>
+<td style="text-align: center;">0.7555</td>
+<td style="text-align: center;">Seleccionada</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><span class="math inline">\(Q_5\)</span></td>
+<td style="text-align: center;">0.6940</td>
+<td style="text-align: center;">Seleccionada</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><span class="math inline">\(Q_8\)</span></td>
+<td style="text-align: center;">0.6875</td>
+<td style="text-align: center;">Seleccionada</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Utilidad óptima entera:</strong> <span class="math inline">\(Z^*_{\text{ILP}} = 2{,}8080\)</span>.</p>
+<p><strong>Recursos utilizados:</strong> carga cognitiva <span class="math inline">\(= 4{,}65 \leq 4{,}70\)</span>; latencia <span class="math inline">\(= 2{,}60 \leq 2{,}80\)</span>.</p>
+<p><strong>Cobertura:</strong> <span class="math inline">\(Q_3 \in C\)</span>, <span class="math inline">\(Q_4, Q_5 \in P\)</span>, <span class="math inline">\(Q_8 \in O\)</span> — al menos una pregunta por categoría.</p>
+<p>La diferencia entre la solución continua (<span class="math inline">\(2{,}8348\)</span>) y la entera (<span class="math inline">\(2{,}8080\)</span>) ilustra la <strong>brecha de integralidad</strong>: la relajación LP proporciona una cota superior, mientras que el ILP da la solución operativa implementable.</p>
+</section>
+</section>
+<section id="análisis-de-sensibilidad" class="level2">
+<h2 class="anchored" data-anchor-id="análisis-de-sensibilidad">Análisis de sensibilidad</h2>
+<p>Se realizó análisis de sensibilidad variando los parámetros críticos:</p>
+<ul>
+<li><strong>Presupuesto de carga cognitiva:</strong> Al reducir <span class="math inline">\(B\)</span> de <span class="math inline">\(4{,}70\)</span> a <span class="math inline">\(4{,}00\)</span>, la solución cambia: se excluye <span class="math inline">\(Q_4\)</span> (carga alta) y se incluye <span class="math inline">\(Q_6\)</span> (carga baja), reduciéndose la utilidad a <span class="math inline">\(\approx 2{,}55\)</span>.</li>
+<li><strong>Presupuesto de latencia:</strong> Al reducir <span class="math inline">\(L\)</span> de <span class="math inline">\(2{,}80\)</span> a <span class="math inline">\(2{,}00\)</span>, la restricción de latencia se vuelve activa y se priorizan preguntas con baja latencia (<span class="math inline">\(Q_5\)</span>, <span class="math inline">\(Q_6\)</span>, <span class="math inline">\(Q_9\)</span>).</li>
+<li><strong>Número de preguntas:</strong> Con <span class="math inline">\(M=3\)</span>, la utilidad disminuye a <span class="math inline">\(\approx 2{,}12\)</span>; con <span class="math inline">\(M=5\)</span>, aumenta a <span class="math inline">\(\approx 3{,}43\)</span> pero puede exceder los presupuestos.</li>
+</ul>
+<p>Las restricciones activas en la solución base son la de carga cognitiva (holgura de <span class="math inline">\(0{,}05\)</span>) y la de máximo de preguntas (ajustada exactamente a 4).</p>
+</section>
+<section id="discusión-crítica" class="level2">
+<h2 class="anchored" data-anchor-id="discusión-crítica">Discusión crítica</h2>
+<p><strong>Limitaciones:</strong></p>
+<ul>
+<li>Los parámetros son sintéticos; en un sistema real, deberían estimarse mediante retroalimentación de usuarios y métricas de interacción.</li>
+<li>La función de utilidad lineal es una simplificación; efectos de sinergia o redundancia entre preguntas no se capturan.</li>
+<li>El modelo es estático: no considera la evolución de la conversación ni el aprendizaje dinámico.</li>
+</ul>
+<p><strong>Extensiones posibles:</strong></p>
+<ul>
+<li><strong>Programación entera:</strong> ya implementada como extensión binaria.</li>
+<li><strong>Optimización multiobjetivo:</strong> maximizar simultáneamente relevancia y diversidad.</li>
+<li><strong>Programación estocástica:</strong> modelar incertidumbre en los parámetros de utilidad.</li>
+<li><strong>Optimización secuencial:</strong> extender a políticas de recomendación adaptativas durante la conversación.</li>
+</ul>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-christakopoulou2016towards" class="csl-entry" role="listitem">
+Christakopoulou, Konstantina, Filip Radlinski, and Katja Hofmann. 2016. <span>“Towards Conversational Recommender Systems.”</span> <em>Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining</em>, 815–24. <a href="https://doi.org/10.1145/2939672.2939746">https://doi.org/10.1145/2939672.2939746</a>.
+</div>
+<div id="ref-gao2021advances" class="csl-entry" role="listitem">
+Gao, Chongming, Wenqiang Lei, Xiangnan He, Maarten de Rijke, and Tat-Seng Chua. 2021. <span>“Advances and Challenges in Conversational Recommender Systems: A Survey.”</span> <em>AI Open</em> 2: 100–126. <a href="https://doi.org/10.1016/j.aiopen.2021.06.002">https://doi.org/10.1016/j.aiopen.2021.06.002</a>.
+</div>
+<div id="ref-jannach2021survey" class="csl-entry" role="listitem">
+Jannach, Dietmar, Ahtsham Manzoor, Wanling Cai, and Li Chen. 2021. <span>“A Survey on Conversational Recommender Systems.”</span> <em>ACM Computing Surveys</em> 54 (5): 1–36. <a href="https://doi.org/10.1145/3453154">https://doi.org/10.1145/3453154</a>.
+</div>
+<div id="ref-lei2020interactive" class="csl-entry" role="listitem">
+Lei, Wenqiang, Xiangnan He, Yisong Miao, et al. 2020. <span>“Estimation-Action-Reflection: Towards Deep Interaction Between Conversational and Recommender Systems.”</span> <em>Proceedings of the 13th International Conference on Web Search and Data Mining</em>, 304–12. <a href="https://doi.org/10.1145/3336191.3371769">https://doi.org/10.1145/3336191.3371769</a>.
+</div>
+<div id="ref-sun2018conversational" class="csl-entry" role="listitem">
+Sun, Yueming, and Yi Zhang. 2018. <span>“Conversational Recommender System.”</span> <em>The 41st International ACM SIGIR Conference on Research &amp; Development in Information Retrieval</em>, 235–44. <a href="https://doi.org/10.1145/3209978.3210002">https://doi.org/10.1145/3209978.3210002</a>.
+</div>
+<div id="ref-zhang2018towards" class="csl-entry" role="listitem">
+Zhang, Yongfeng, Xu Chen, Qingyao Ai, Liu Yang, and W. Bruce Croft. 2018. <span>“Towards Conversational Search and Recommendation: System Ask, User Respond.”</span> <em>Proceedings of the 27th ACM International Conference on Information and Knowledge Management</em>, 177–86. <a href="https://doi.org/10.1145/3269206.3271776">https://doi.org/10.1145/3269206.3271776</a>.
+</div>
+</div></section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
