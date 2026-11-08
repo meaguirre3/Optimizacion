@@ -1,0 +1,683 @@
+---
+title: "Selección Óptima de Preguntas para un Chatbot Conversacional"
+subtitle: "Modelo de Programación Lineal — Parte I"
+description: "Presentación reveal.js del modelo LP/ILP para selección de preguntas en chatbots conversacionales."
+categories: [Parte I, Presentación, LP]
+image: images/pres1_thumb.svg
+author: "Tópicos Especiales 1 · Doctorado en Informática"
+institute: "Escuela Politécnica Nacional"
+date: "Noviembre 2026"
+format:
+  revealjs:
+    theme: [default, presentacion_styles.scss]
+    slide-number: true
+    progress: true
+    hash: true
+    transition: slide
+    background-transition: fade
+    highlight-style: monokai
+    code-line-numbers: true
+    code-overflow: wrap
+    fig-align: center
+    width: 1280
+    height: 720
+    margin: 0.1
+    center: true
+    navigation-mode: vertical
+    controls-layout: bottom-right
+    logo: ""
+    footer: "Tópicos Especiales 1 — Programación Lineal"
+    title-slide-attributes:
+      data-background-gradient: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)"
+      data-background-opacity: "1"
+bibliography: referencias.bib
+csl: ieee.csl
+execute:
+  echo: true
+  warning: false
+---
+
+## Agenda {background-color="#16213e"}
+
+::: {.incremental}
+1. **Contexto** — Tesis doctoral y sistemas conversacionales
+2. **Problema** — Selección de preguntas bajo restricciones
+3. **Formulación** — Modelo LP y extensión ILP
+4. **Implementación** — Python: scipy + PuLP
+5. **Resultados** — Solución óptima y comparación
+6. **Sensibilidad** — Variación de parámetros críticos
+:::
+
+# Contexto {background-color="#0f3460"}
+
+## Marco de la investigación doctoral
+
+::: {.columns}
+::: {.column width="55%"}
+
+**Tesis:** *Agentic Conversational User Modeling Framework for Question Recommendation*
+
+::: {.incremental}
+- Framework basado en **agentes de IA** para recomendación de preguntas
+- Los LLM generan múltiples preguntas candidatas
+- Demasiadas preguntas $\Rightarrow$ **sobrecarga cognitiva**
+- Necesidad de **selección óptima**
+:::
+
+:::
+::: {.column width="45%"}
+
+::: {.callout-note icon=false}
+## Desafío central
+Seleccionar un subconjunto limitado de preguntas que **maximice la relevancia** y la **ganancia de información**, respetando restricciones de:
+
+- Carga cognitiva
+- Latencia de respuesta
+- Diversidad de categorías
+:::
+
+:::
+:::
+
+## Sistemas conversacionales de recomendación
+
+::: {.columns}
+::: {.column width="50%"}
+
+Los **CRS** (Conversational Recommender Systems) interactúan dinámicamente con usuarios mediante preguntas y respuestas [@jannach2021survey].
+
+::: {.fragment}
+**Problema concreto:**
+
+Un chatbot debe presentar como máximo **4 preguntas** de entre **9 candidatas** al inicio de la conversación.
+:::
+
+:::
+::: {.column width="50%"}
+
+```{python}
+#| echo: false
+#| fig-align: center
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
+fig, ax = plt.subplots(figsize=(5, 6))
+fig.set_facecolor('#1a1a2e')
+ax.set_facecolor('#1a1a2e')
+ax.axis('off')
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 12)
+
+boxes = [
+    (5, 10.5, 'Agentes de IA', '#16213e', '#4fc3f7'),
+    (5, 8.5,  '9 preguntas\ncandidatas', '#16213e', '#4fc3f7'),
+    (5, 6.0,  'Modelo de\noptimización', '#e94560', '#ffffff'),
+    (5, 3.5,  '≤ 4 preguntas\nseleccionadas', '#0f3460', '#ffffff'),
+    (5, 1.5,  'Interfaz del\nchatbot', '#16213e', '#4fc3f7'),
+]
+
+for x, y, txt, fc, tc in boxes:
+    w, h = 7, 1.4
+    if 'optimización' in txt:
+        diamond = plt.Polygon([(x, y+1), (x+2.2, y), (x, y-1), (x-2.2, y)],
+                              facecolor=fc, edgecolor='#ffffff', linewidth=2)
+        ax.add_patch(diamond)
+        ax.text(x, y, txt, ha='center', va='center', fontsize=10,
+                color=tc, fontweight='bold')
+    else:
+        rect = mpatches.FancyBboxPatch((x-w/2, y-h/2), w, h,
+               boxstyle='round,pad=0.2', facecolor=fc,
+               edgecolor='#4fc3f7', linewidth=1.5)
+        ax.add_patch(rect)
+        ax.text(x, y, txt, ha='center', va='center', fontsize=10,
+                color=tc, fontweight='bold')
+
+arrows = [(5, 9.8, 0, -0.55), (5, 7.8, 0, -0.55),
+          (5, 5.0, 0, -0.55), (5, 2.8, 0, -0.55)]
+for x, y, dx, dy in arrows:
+    ax.annotate('', xy=(x+dx, y+dy), xytext=(x, y),
+                arrowprops=dict(arrowstyle='->', color='#4fc3f7', lw=2))
+
+plt.tight_layout()
+plt.show()
+```
+
+:::
+:::
+
+# Definición del problema {background-color="#0f3460"}
+
+## Preguntas candidatas
+
+Las **9 preguntas** se clasifican en **3 categorías:**
+
+| | Clarificación ($C$) | Preferencias ($P$) | Objetivos ($O$) |
+|:---:|:---:|:---:|:---:|
+| | Precisan el contenido | Personalizan la exploración | Profundizan el conocimiento |
+| **Preguntas** | $Q_1, Q_2, Q_3$ | $Q_4, Q_5, Q_6$ | $Q_7, Q_8, Q_9$ |
+
+::: {.fragment}
+Cada pregunta $i$ tiene **4 indicadores:** relevancia $r_i$, ganancia de información $g_i$, carga cognitiva $a_i$, latencia $\ell_i$.
+:::
+
+## Parámetros del modelo
+
+```{python}
+#| echo: false
+#| fig-align: center
+import matplotlib.pyplot as plt
+import numpy as np
+
+preguntas_t = ['Q₁','Q₂','Q₃','Q₄','Q₅','Q₆','Q₇','Q₈','Q₉']
+cats_t = ['Clarif.','Clarif.','Clarif.','Prefer.','Prefer.','Prefer.',
+          'Obj.','Obj.','Obj.']
+r_t = [0.90,0.80,0.72,0.89,0.80,0.70,0.92,0.77,0.75]
+g_t = [0.90,0.72,0.78,0.84,0.76,0.67,0.88,0.80,0.68]
+a_t = [1.60,1.10,0.95,1.40,1.10,0.85,1.70,1.20,0.85]
+l_t = [0.75,0.55,0.70,0.80,0.45,0.40,1.00,0.65,0.50]
+u_t = [0.55*rv+0.45*gv-0.08*av for rv,gv,av in zip(r_t,g_t,a_t)]
+
+cat_colors = {'Clarif.':'#4fc3f7','Prefer.':'#ffb74d','Obj.':'#81c784'}
+
+fig, ax = plt.subplots(figsize=(12, 4))
+fig.set_facecolor('#1a1a2e')
+ax.set_facecolor('#1a1a2e')
+ax.axis('off')
+
+cols = ['Pregunta','Categ.','rᵢ','gᵢ','aᵢ','ℓᵢ','uᵢ']
+cell_text = []
+cell_colors = []
+for i in range(9):
+    row = [preguntas_t[i], cats_t[i], f'{r_t[i]:.2f}', f'{g_t[i]:.2f}',
+           f'{a_t[i]:.2f}', f'{l_t[i]:.2f}', f'{u_t[i]:.3f}']
+    cell_text.append(row)
+    bg = '#1e2a45' if i % 2 == 0 else '#1a1a2e'
+    cell_colors.append([bg]*7)
+
+table = ax.table(cellText=cell_text, colLabels=cols,
+                 cellColours=cell_colors, loc='center',
+                 cellLoc='center')
+table.auto_set_font_size(False)
+table.set_fontsize(11)
+table.scale(1, 1.6)
+
+for (row, col), cell in table.get_celld().items():
+    cell.set_edgecolor('#333')
+    if row == 0:
+        cell.set_facecolor('#0f3460')
+        cell.set_text_props(color='#4fc3f7', fontweight='bold', fontsize=12)
+    else:
+        cell.set_text_props(color='#e8e8e8')
+        if col == 1:
+            cell.set_text_props(color=cat_colors.get(cell_text[row-1][1],'#e8e8e8'))
+        if col == 6:
+            cell.set_text_props(color='#e94560', fontweight='bold')
+
+plt.title('Parámetros de las preguntas candidatas',
+          color='white', fontsize=13, pad=10)
+plt.tight_layout()
+plt.show()
+```
+
+::: {.fragment style="text-align: center; margin-top: 0.5em;"}
+$$u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i$$
+:::
+
+## Restricciones del sistema
+
+::: {.columns}
+::: {.column width="50%"}
+
+| Parámetro | Valor |
+|:---|:---:|
+| Máximo de preguntas ($M$) | 4 |
+| Presupuesto carga cognitiva ($B$) | 4,70 |
+| Presupuesto latencia ($L$) | 2,80 |
+| Cobertura mínima/categoría ($m_k$) | 0,70 |
+
+:::
+::: {.column width="50%"}
+
+::: {.callout-important icon=false}
+## Decisiones
+- **Variables:** $x_i \in [0,1]$ o $y_i \in \{0,1\}$
+- **Objetivo:** Maximizar utilidad total
+- **Restricciones:** Capacidad + cobertura
+:::
+
+:::
+:::
+
+# Formulación matemática {background-color="#0f3460"}
+
+## Modelo continuo — Programa Lineal
+
+**Función objetivo:**
+$$\max\; Z = \sum_{i=1}^{9} u_i \, x_i = \sum_{i=1}^{9} \bigl(0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i\bigr)\,x_i$$
+
+::: {.fragment}
+**Restricciones:**
+
+$$\sum_{i=1}^{9} x_i \leq 4 \quad \text{(máximo de preguntas)}$$
+
+$$\sum_{i=1}^{9} a_i\,x_i \leq 4{,}70 \quad \text{(carga cognitiva)}$$
+
+$$\sum_{i=1}^{9} \ell_i\,x_i \leq 2{,}80 \quad \text{(latencia)}$$
+:::
+
+## Restricciones de cobertura y dominio
+
+**Cobertura mínima por categoría:**
+
+$$\sum_{i \in I_k} x_i \geq 0{,}70 \qquad \forall\, k \in \{C, P, O\}$$
+
+::: {.fragment}
+**Dominio:**
+$$0 \leq x_i \leq 1 \qquad \forall\, i \in I$$
+
+::: {.callout-tip icon=false}
+## Propiedad clave
+El modelo es **completamente lineal**: función objetivo y restricciones son lineales en $x_i$.
+Se resuelve de forma exacta con el método Simplex o HiGHS.
+:::
+:::
+
+## Extensión binaria — ILP
+
+Para seleccionar preguntas **concretas** (sí/no), se introduce:
+
+$$y_i \in \{0, 1\}, \quad y_i = \begin{cases} 1 & \text{si se recomienda } Q_i \\ 0 & \text{en caso contrario} \end{cases}$$
+
+::: {.fragment}
+Se sustituye $x_i \to y_i$ en todas las ecuaciones.
+
+::: {.columns}
+::: {.column width="50%"}
+**LP (relajación)**
+
+- $x_i \in [0,1]$ continuo
+- Cota superior de $Z$
+- `scipy.optimize.linprog`
+:::
+::: {.column width="50%"}
+**ILP (binario)**
+
+- $y_i \in \{0,1\}$ entero
+- Solución implementable
+- `PuLP` + CBC solver
+:::
+:::
+:::
+
+# Implementación en Python {background-color="#0f3460"}
+
+## Datos y utilidades
+
+```{python}
+#| code-fold: false
+#| code-line-numbers: "|3-5|7-10|13"
+import numpy as np
+
+r = np.array([0.90, 0.80, 0.72, 0.89, 0.80, 0.70, 0.92, 0.77, 0.75])
+g = np.array([0.90, 0.72, 0.78, 0.84, 0.76, 0.67, 0.88, 0.80, 0.68])
+a = np.array([1.60, 1.10, 0.95, 1.40, 1.10, 0.85, 1.70, 1.20, 0.85])
+
+preguntas = ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9']
+categorias = ['Clarif.','Clarif.','Clarif.',
+              'Prefer.','Prefer.','Prefer.',
+              'Objeti.','Objeti.','Objeti.']
+
+# Función de utilidad
+u = 0.55 * r + 0.45 * g - 0.08 * a
+for i in range(9):
+    print(f'{preguntas[i]} ({categorias[i]}): u = {u[i]:.4f}')
+```
+
+## Solución LP con `scipy.optimize.linprog`
+
+```{python}
+#| code-fold: false
+#| code-line-numbers: "|1-2|4-12|14-15"
+from scipy.optimize import linprog
+n, l_vec = 9, np.array([0.75,0.55,0.70,0.80,0.45,0.40,1.00,0.65,0.50])
+
+A_ub = [np.ones(n), a, l_vec,
+        np.array([-1,-1,-1,0,0,0,0,0,0]),
+        np.array([0,0,0,-1,-1,-1,0,0,0]),
+        np.array([0,0,0,0,0,0,-1,-1,-1])]
+b_ub = [4, 4.70, 2.80, -0.70, -0.70, -0.70]
+
+res_lp = linprog(-u, A_ub=A_ub, b_ub=b_ub,
+                 bounds=[(0,1)]*n, method='highs')
+
+print(f'Utilidad óptima LP: Z* = {-res_lp.fun:.4f}')
+for i in range(n):
+    if res_lp.x[i] > 0.001:
+        print(f'  {preguntas[i]}: x = {res_lp.x[i]:.4f}')
+```
+
+## Solución ILP con PuLP
+
+```{python}
+#| code-fold: false
+#| code-line-numbers: "|1-4|6-13|15-20"
+from pulp import (LpMaximize, LpProblem, LpVariable,
+                  lpSum, value, LpBinary)
+
+prob = LpProblem('Seleccion', LpMaximize)
+y = [LpVariable(f'y_{i+1}', cat=LpBinary) for i in range(n)]
+
+prob += lpSum(u[i]*y[i] for i in range(n))
+prob += lpSum(y[i] for i in range(n)) <= 4
+prob += lpSum(a[i]*y[i] for i in range(n)) <= 4.70
+prob += lpSum(l_vec[i]*y[i] for i in range(n)) <= 2.80
+prob += lpSum(y[i] for i in range(3)) >= 0.70
+prob += lpSum(y[i] for i in range(3,6)) >= 0.70
+prob += lpSum(y[i] for i in range(6,9)) >= 0.70
+
+prob.solve()
+sel = [i for i in range(n) if int(value(y[i])) == 1]
+print(f'Utilidad óptima ILP: Z* = {value(prob.objective):.4f}')
+print(f'Seleccionadas: {[preguntas[i] for i in sel]}')
+print(f'Carga: {sum(a[i] for i in sel):.2f}/4.70')
+print(f'Latencia: {sum(l_vec[i] for i in sel):.2f}/2.80')
+```
+
+# Resultados {background-color="#0f3460"}
+
+## Utilidad por pregunta — Solución ILP
+
+```{python}
+#| code-fold: true
+#| fig-align: center
+import matplotlib.pyplot as plt
+
+colores_cat = {'Clarif.': '#4fc3f7', 'Prefer.': '#ffb74d', 'Objeti.': '#81c784'}
+colores = [colores_cat[c] for c in categorias]
+bordes = ['#e94560' if i in sel else '#ffffff00' for i in range(n)]
+anchos = [3.5 if i in sel else 0 for i in range(n)]
+
+fig, ax = plt.subplots(figsize=(11, 4.5))
+bars = ax.bar(preguntas, u, color=colores, edgecolor=bordes,
+              linewidth=anchos, zorder=3)
+
+for i in sel:
+    ax.annotate('SEL', (i, u[i]), textcoords='offset points',
+                xytext=(0, 8), ha='center', fontsize=9,
+                fontweight='bold', color='#e94560')
+
+from matplotlib.patches import Patch
+leg = [Patch(facecolor=c, label=k) for k, c in colores_cat.items()]
+leg.append(Patch(facecolor='white', edgecolor='#e94560',
+                 linewidth=2.5, label='Seleccionada'))
+ax.legend(handles=leg, loc='upper right', fontsize=9)
+
+ax.set_ylabel('Utilidad $u_i$', fontsize=11)
+ax.set_ylim(0, max(u)*1.18)
+ax.set_facecolor('#1a1a2e')
+fig.set_facecolor('#1a1a2e')
+ax.tick_params(colors='white')
+ax.yaxis.label.set_color('white')
+ax.xaxis.label.set_color('white')
+for spine in ax.spines.values():
+    spine.set_color('#333')
+ax.grid(axis='y', alpha=0.15, color='white')
+plt.tight_layout()
+plt.show()
+```
+
+## Comparación LP vs ILP
+
+```{python}
+#| code-fold: true
+#| fig-align: center
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+
+for ax_i in axes:
+    ax_i.set_facecolor('#1a1a2e')
+    ax_i.tick_params(colors='white')
+    ax_i.yaxis.label.set_color('white')
+    for spine in ax_i.spines.values():
+        spine.set_color('#333')
+    ax_i.grid(axis='y', alpha=0.15, color='white')
+
+axes[0].bar(preguntas, res_lp.x, color=colores, alpha=0.85)
+axes[0].set_ylabel('$x_i$ (proporción)')
+axes[0].set_title(f'LP continuo — Z* = {-res_lp.fun:.4f}',
+                   color='white', fontsize=12)
+axes[0].set_ylim(0, 1.15)
+axes[0].axhline(y=1, color='gray', linestyle='--', alpha=0.3)
+
+y_vals = [int(value(y[i])) for i in range(n)]
+axes[1].bar(preguntas, y_vals, color=colores, alpha=0.85)
+axes[1].set_ylabel('$y_i$ (0 o 1)')
+axes[1].set_title(f'ILP binario — Z* = {value(prob.objective):.4f}',
+                   color='white', fontsize=12)
+axes[1].set_ylim(0, 1.15)
+
+fig.set_facecolor('#1a1a2e')
+brecha = -res_lp.fun - value(prob.objective)
+fig.suptitle(f'Brecha de integralidad: {brecha:.4f}',
+             color='#e94560', fontsize=11, y=0.02)
+plt.tight_layout()
+plt.show()
+```
+
+## Uso de recursos
+
+```{python}
+#| code-fold: true
+#| fig-align: center
+fig, ax = plt.subplots(figsize=(9, 4.5))
+ax.set_facecolor('#1a1a2e')
+fig.set_facecolor('#1a1a2e')
+
+recursos = ['Preguntas\n(M=4)', 'Carga cognitiva\n(B=4.70)', 'Latencia\n(L=2.80)']
+usados = [len(sel), sum(a[i] for i in sel), sum(l_vec[i] for i in sel)]
+presupuestos = [4, 4.70, 2.80]
+pct = [us/pr*100 for us, pr in zip(usados, presupuestos)]
+
+x_pos = np.arange(len(recursos))
+width = 0.35
+
+bars1 = ax.bar(x_pos - width/2, usados, width, label='Utilizado',
+               color='#e94560', zorder=3)
+bars2 = ax.bar(x_pos + width/2, presupuestos, width, label='Presupuesto',
+               color='#0f3460', edgecolor='#4fc3f7', linewidth=2, zorder=3)
+
+for i, (us_val, pr) in enumerate(zip(usados, presupuestos)):
+    holgura = pr - us_val
+    ax.annotate(f'{us_val:.2f}/{pr:.2f}\n({pct[i]:.0f}%)',
+                (i, max(us_val, pr)), textcoords='offset points',
+                xytext=(0, 10), ha='center', fontsize=9, color='white')
+
+ax.set_xticks(x_pos)
+ax.set_xticklabels(recursos, color='white')
+ax.tick_params(colors='white')
+for spine in ax.spines.values():
+    spine.set_color('#333')
+ax.legend(fontsize=10, loc='upper right')
+ax.grid(axis='y', alpha=0.15, color='white')
+plt.tight_layout()
+plt.show()
+```
+
+## Solución óptima — Resumen
+
+::: {.columns}
+::: {.column width="50%"}
+
+| Modelo | $Z^*$ |
+|:---|:---:|
+| LP (continuo) | **2,8348** |
+| ILP (binario) | **2,8080** |
+| Brecha | 0,0268 |
+
+: {.striped}
+
+::: {.fragment}
+**Preguntas seleccionadas:**
+
+| | Pregunta | Categoría | $u_i$ |
+|:---:|:---:|:---:|:---:|
+| ✓ | $Q_3$ | Clarificación | 0,671 |
+| ✓ | $Q_4$ | Preferencias | 0,756 |
+| ✓ | $Q_5$ | Preferencias | 0,694 |
+| ✓ | $Q_8$ | Objetivos | 0,688 |
+
+: {.striped}
+:::
+
+:::
+::: {.column width="50%"}
+
+::: {.fragment}
+::: {.callout-note icon=false}
+## Observación clave
+$Q_1$ y $Q_7$ tienen las **mayores utilidades** individuales, pero su alta carga cognitiva y latencia las excluyen de la solución factible.
+
+La optimización selecciona preguntas que **balancean** utilidad con consumo de recursos.
+:::
+:::
+
+:::
+:::
+
+# Análisis de sensibilidad {background-color="#0f3460"}
+
+## Variación de parámetros
+
+```{python}
+#| code-fold: true
+#| fig-align: center
+from pulp import PULP_CBC_CMD
+
+def resolver_ilp(M_v, B_v, L_v):
+    p = LpProblem('S', LpMaximize)
+    yv = [LpVariable(f's{i}', cat=LpBinary) for i in range(n)]
+    p += lpSum(u[i]*yv[i] for i in range(n))
+    p += lpSum(yv[i] for i in range(n)) <= M_v
+    p += lpSum(a[i]*yv[i] for i in range(n)) <= B_v
+    p += lpSum(l_vec[i]*yv[i] for i in range(n)) <= L_v
+    p += lpSum(yv[i] for i in range(3)) >= 0.70
+    p += lpSum(yv[i] for i in range(3,6)) >= 0.70
+    p += lpSum(yv[i] for i in range(6,9)) >= 0.70
+    p.solve(PULP_CBC_CMD(msg=0))
+    obj = value(p.objective)
+    return float(obj) if obj else 0.0
+
+B_s = [round(3.5+i*0.1,1) for i in range(21)]
+Z_B = [resolver_ilp(4, b, 2.80) for b in B_s]
+L_s = [round(1.5+i*0.1,1) for i in range(21)]
+Z_L = [resolver_ilp(4, 4.70, lv) for lv in L_s]
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+for axi in axes:
+    axi.set_facecolor('#1a1a2e')
+    axi.tick_params(colors='white')
+    for sp in axi.spines.values(): sp.set_color('#333')
+    axi.grid(axis='y', alpha=0.15, color='white')
+fig.set_facecolor('#1a1a2e')
+
+bx = [(b,z) for b,z in zip(B_s,Z_B) if z > 0]
+axes[0].plot([x[0] for x in bx], [x[1] for x in bx],
+             'o-', color='#e94560', markersize=5)
+axes[0].axvline(x=4.70, color='#4fc3f7', linestyle='--', alpha=0.7,
+                label='B = 4.70')
+axes[0].set_xlabel('Carga cognitiva (B)', color='white')
+axes[0].set_ylabel('Z*', color='white')
+axes[0].set_title('Sensibilidad a carga cognitiva', color='white')
+axes[0].legend(fontsize=9)
+
+lx = [(lv,z) for lv,z in zip(L_s,Z_L) if z > 0]
+axes[1].plot([x[0] for x in lx], [x[1] for x in lx],
+             's-', color='#ffb74d', markersize=5)
+axes[1].axvline(x=2.80, color='#4fc3f7', linestyle='--', alpha=0.7,
+                label='L = 2.80')
+axes[1].set_xlabel('Latencia (L)', color='white')
+axes[1].set_ylabel('Z*', color='white')
+axes[1].set_title('Sensibilidad a latencia', color='white')
+axes[1].legend(fontsize=9)
+
+plt.tight_layout()
+plt.show()
+```
+
+## Hallazgos del análisis de sensibilidad
+
+::: {.columns}
+::: {.column width="50%"}
+
+::: {.incremental}
+- **Carga cognitiva** $B$: restricción más activa (holgura = 0,05)
+- Reducir $B$ a 4,00 $\Rightarrow$ se excluye $Q_4$, se incluye $Q_6$
+- **Latencia** $L$: holgura moderada (0,20)
+- Reducir $L$ a 2,00 $\Rightarrow$ se priorizan $Q_5, Q_6, Q_9$
+:::
+
+:::
+::: {.column width="50%"}
+
+::: {.fragment}
+::: {.callout-warning icon=false}
+## Restricciones activas
+1. **Máximo de preguntas**: exactamente 4 seleccionadas
+2. **Carga cognitiva**: 4,65 / 4,70 (98,9%)
+3. **Cobertura**: satisfecha con margen
+
+La carga cognitiva es el **cuello de botella** del sistema.
+:::
+:::
+
+:::
+:::
+
+# Conclusiones {background-color="#0f3460"}
+
+## Aportes y extensiones
+
+::: {.columns}
+::: {.column width="50%"}
+
+### Resultados principales
+
+::: {.incremental}
+- Formulación LP **exacta** y resoluble en tiempo polinomial
+- Brecha de integralidad **mínima** (0,03)
+- Solución ILP directamente **implementable** en producción
+- Análisis de sensibilidad identifica **restricciones críticas**
+:::
+
+:::
+::: {.column width="50%"}
+
+### Extensiones posibles
+
+::: {.incremental}
+- **Multiobjetivo:** relevancia + diversidad simultáneamente
+- **Estocástica:** incertidumbre en parámetros de utilidad
+- **Dinámica:** políticas adaptativas durante la conversación
+- **Aprendizaje:** actualización de $r_i, g_i$ con retroalimentación real
+:::
+
+:::
+:::
+
+## {background-color="#1a1a2e"}
+
+::: {.r-fit-text}
+**Gracias**
+:::
+
+::: {style="text-align: center; font-size: 0.8em; color: #aaa; margin-top: 1em;"}
+Modelo de Programación Lineal — Parte I
+
+Tópicos Especiales 1 · Doctorado en Informática
+
+Escuela Politécnica Nacional · 2026
+:::
+
+## Referencias
+
+::: {#refs}
+:::

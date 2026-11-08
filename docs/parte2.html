@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Estudio, formulación LP/ILP e implementación de los problemas de ruta más corta (Dijkstra) y del agente viajero (MTZ), con análisis de complejidad.">
+
+<title>Parte II: Modelos de Optimización Combinatoria – Tópicos Especiales 1</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-172ba59bd5e0b52282274ba0c0cc16fc.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Tópicos Especiales 1</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="./index.html"> 
+<span class="menu-text">Inicio</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-parte-i" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Parte I</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-parte-i">    
+        <li>
+    <a class="dropdown-item" href="./parte1.html">
+ <span class="dropdown-text">Reporte</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./presentacion_parte1.html">
+ <span class="dropdown-text">Presentación</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./parte1_implementacion.html">
+ <span class="dropdown-text">Implementación</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-parte-ii" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Parte II</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-parte-ii">    
+        <li>
+    <a class="dropdown-item" href="./parte2.html">
+ <span class="dropdown-text">Reporte</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./presentacion_parte2.html">
+ <span class="dropdown-text">Presentación</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="./simulaciones_parte2.html">
+ <span class="dropdown-text">Simulaciones</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="./about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#introducción" id="toc-introducción" class="nav-link active" data-scroll-target="#introducción">Introducción</a></li>
+  <li><a href="#problema-de-la-ruta-más-corta-spp" id="toc-problema-de-la-ruta-más-corta-spp" class="nav-link" data-scroll-target="#problema-de-la-ruta-más-corta-spp">Problema de la Ruta Más Corta (SPP)</a>
+  <ul class="collapse">
+  <li><a href="#definición-del-problema-y-representación-en-grafos" id="toc-definición-del-problema-y-representación-en-grafos" class="nav-link" data-scroll-target="#definición-del-problema-y-representación-en-grafos">Definición del problema y representación en grafos</a></li>
+  <li><a href="#formulación-matemática-como-programa-lineal" id="toc-formulación-matemática-como-programa-lineal" class="nav-link" data-scroll-target="#formulación-matemática-como-programa-lineal">Formulación matemática como programa lineal</a></li>
+  <li><a href="#algoritmo-de-dijkstra-y-complejidad" id="toc-algoritmo-de-dijkstra-y-complejidad" class="nav-link" data-scroll-target="#algoritmo-de-dijkstra-y-complejidad">Algoritmo de Dijkstra y complejidad</a></li>
+  <li><a href="#ejemplo-numérico-resuelto" id="toc-ejemplo-numérico-resuelto" class="nav-link" data-scroll-target="#ejemplo-numérico-resuelto">Ejemplo numérico resuelto</a></li>
+  <li><a href="#aplicaciones-en-sistemas-de-información" id="toc-aplicaciones-en-sistemas-de-información" class="nav-link" data-scroll-target="#aplicaciones-en-sistemas-de-información">Aplicaciones en sistemas de información</a></li>
+  </ul></li>
+  <li><a href="#problema-del-agente-viajero-tsp" id="toc-problema-del-agente-viajero-tsp" class="nav-link" data-scroll-target="#problema-del-agente-viajero-tsp">Problema del Agente Viajero (TSP)</a>
+  <ul class="collapse">
+  <li><a href="#definición-y-circuitos-hamiltonianos" id="toc-definición-y-circuitos-hamiltonianos" class="nav-link" data-scroll-target="#definición-y-circuitos-hamiltonianos">Definición y circuitos hamiltonianos</a></li>
+  <li><a href="#formulación-matemática-mtz" id="toc-formulación-matemática-mtz" class="nav-link" data-scroll-target="#formulación-matemática-mtz">Formulación matemática (MTZ)</a></li>
+  <li><a href="#complejidad-computacional" id="toc-complejidad-computacional" class="nav-link" data-scroll-target="#complejidad-computacional">Complejidad computacional</a></li>
+  <li><a href="#ejemplo-numérico-resuelto-1" id="toc-ejemplo-numérico-resuelto-1" class="nav-link" data-scroll-target="#ejemplo-numérico-resuelto-1">Ejemplo numérico resuelto</a></li>
+  <li><a href="#aplicaciones-en-sistemas-de-información-1" id="toc-aplicaciones-en-sistemas-de-información-1" class="nav-link" data-scroll-target="#aplicaciones-en-sistemas-de-información-1">Aplicaciones en sistemas de información</a></li>
+  </ul></li>
+  <li><a href="#comparación-conceptual-y-computacional" id="toc-comparación-conceptual-y-computacional" class="nav-link" data-scroll-target="#comparación-conceptual-y-computacional">Comparación Conceptual y Computacional</a></li>
+  <li><a href="#discusión" id="toc-discusión" class="nav-link" data-scroll-target="#discusión">Discusión</a></li>
+  <li><a href="#referencias" id="toc-referencias" class="nav-link" data-scroll-target="#referencias">Referencias</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Parte II: Modelos de Optimización Combinatoria</h1>
+<p class="subtitle lead">Ruta Más Corta (SPP) y Agente Viajero (TSP)</p>
+  <div class="quarto-categories">
+    <div class="quarto-category">Parte II</div>
+    <div class="quarto-category">Reporte</div>
+    <div class="quarto-category">SPP</div>
+    <div class="quarto-category">TSP</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    Estudio, formulación LP/ILP e implementación de los problemas de ruta más corta (Dijkstra) y del agente viajero (MTZ), con análisis de complejidad.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introducción" class="level2">
+<h2 class="anchored" data-anchor-id="introducción">Introducción</h2>
+<p>La Parte II estudia, formula e implementa dos problemas clásicos de optimización combinatoria: el <strong>problema de la ruta más corta</strong> (Shortest Path Problem, SPP) y el <strong>problema del agente viajero</strong> (Traveling Salesman Problem, TSP). Ambos se formulan sobre grafos, pero difieren radicalmente en complejidad computacional y estrategias de solución <span class="citation" data-cites="schrijver2003 papadimitriou1998">(<a href="#ref-schrijver2003" role="doc-biblioref">Schrijver 2003</a>; <a href="#ref-papadimitriou1998" role="doc-biblioref">Papadimitriou and Steiglitz 1998</a>)</span>.</p>
+</section>
+<section id="problema-de-la-ruta-más-corta-spp" class="level2">
+<h2 class="anchored" data-anchor-id="problema-de-la-ruta-más-corta-spp">Problema de la Ruta Más Corta (SPP)</h2>
+<section id="definición-del-problema-y-representación-en-grafos" class="level3">
+<h3 class="anchored" data-anchor-id="definición-del-problema-y-representación-en-grafos">Definición del problema y representación en grafos</h3>
+<div class="callout callout-style-default callout-note no-icon callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Definición (SPP)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Dado un grafo dirigido <span class="math inline">\(G = (V, A)\)</span> con costos <span class="math inline">\(c_{ij} \geq 0\)</span> en cada arco <span class="math inline">\((i,j) \in A\)</span>, un nodo origen <span class="math inline">\(s\)</span> y un nodo destino <span class="math inline">\(t\)</span>, el problema consiste en encontrar un camino dirigido de <span class="math inline">\(s\)</span> a <span class="math inline">\(t\)</span> de costo total mínimo <span class="citation" data-cites="ahuja1993 bazaraa2010">(<a href="#ref-ahuja1993" role="doc-biblioref">Ahuja et al. 1993</a>; <a href="#ref-bazaraa2010" role="doc-biblioref">Bazaraa et al. 2010</a>)</span>.</p>
+</div>
+</div>
+<p>Un <strong>camino dirigido</strong> de <span class="math inline">\(s\)</span> a <span class="math inline">\(t\)</span> es una secuencia <span class="math inline">\(s = v_0, v_1, \ldots, v_k = t\)</span> con <span class="math inline">\((v_{i-1}, v_i) \in A\)</span>. Su costo es <span class="math inline">\(\sum_{i=1}^{k} c_{v_{i-1}, v_i}\)</span>.</p>
+<p>Se utiliza un grafo dirigido ponderado de 6 nodos como ejemplo:</p>
+<table class="table-striped table-hover caption-top table">
+<caption>Arcos y costos del grafo de ejemplo.</caption>
+<colgroup>
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Arco</th>
+<th style="text-align: center;"><span class="math inline">\((1,2)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\((1,4)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\((1,5)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\((2,3)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\((2,5)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\((3,6)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\((4,2)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\((4,5)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\((5,6)\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">Costo</td>
+<td style="text-align: center;">7</td>
+<td style="text-align: center;">9</td>
+<td style="text-align: center;">14</td>
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">15</td>
+<td style="text-align: center;">11</td>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">9</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="formulación-matemática-como-programa-lineal" class="level3">
+<h3 class="anchored" data-anchor-id="formulación-matemática-como-programa-lineal">Formulación matemática como programa lineal</h3>
+<p>La formulación como programa lineal de flujo en redes se basa en variables de flujo <span class="citation" data-cites="bertsimas1997 bazaraa2010">(<a href="#ref-bertsimas1997" role="doc-biblioref">Bertsimas and Tsitsiklis 1997</a>; <a href="#ref-bazaraa2010" role="doc-biblioref">Bazaraa et al. 2010</a>)</span>. Se define <span class="math inline">\(x_{ij} \geq 0\)</span> para cada arco <span class="math inline">\((i,j) \in A\)</span>:</p>
+<p><span class="math display">\[
+\min \sum_{(i,j) \in A} c_{ij}\, x_{ij}
+\]</span></p>
+<p>sujeto a:</p>
+<p><span class="math display">\[
+\sum_{j:(i,j)\in A} x_{ij} - \sum_{j:(j,i)\in A} x_{ji} = \begin{cases} 1 &amp; \text{si } i = s \\ -1 &amp; \text{si } i = t \\ 0 &amp; \text{en otro caso} \end{cases} \quad \forall\, i \in V
+\]</span></p>
+<p><span class="math display">\[
+x_{ij} \geq 0, \quad \forall\,(i,j) \in A
+\]</span></p>
+<div class="callout callout-style-default callout-tip no-icon callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Integralidad natural
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>La matriz de restricciones de conservación de flujo es la <strong>matriz de incidencia</strong> del grafo dirigido, que es <strong>totalmente unimodular</strong> <span class="citation" data-cites="ahuja1993">(<a href="#ref-ahuja1993" role="doc-biblioref">Ahuja et al. 1993</a>)</span>. Por lo tanto, la relajación LP produce soluciones enteras y <strong>no es necesario</strong> imponer <span class="math inline">\(x_{ij} \in \{0,1\}\)</span>.</p>
+</div>
+</div>
+</section>
+<section id="algoritmo-de-dijkstra-y-complejidad" class="level3">
+<h3 class="anchored" data-anchor-id="algoritmo-de-dijkstra-y-complejidad">Algoritmo de Dijkstra y complejidad</h3>
+<p>El algoritmo de Dijkstra <span class="citation" data-cites="dijkstra1959">(<a href="#ref-dijkstra1959" role="doc-biblioref">Dijkstra 1959</a>)</span> resuelve el SPP desde un origen <span class="math inline">\(s\)</span> asumiendo <span class="math inline">\(c_{ij} \geq 0\)</span>. Su funcionamiento:</p>
+<ol type="1">
+<li>Inicializar <span class="math inline">\(d[s] = 0\)</span> y <span class="math inline">\(d[v] = \infty\)</span> para todo <span class="math inline">\(v \neq s\)</span>.</li>
+<li>Extraer de la cola de prioridad el nodo <span class="math inline">\(u\)</span> con menor <span class="math inline">\(d[u]\)</span>.</li>
+<li>Para cada vecino <span class="math inline">\(v\)</span> de <span class="math inline">\(u\)</span>: si <span class="math inline">\(d[u] + c_{uv} &lt; d[v]\)</span>, actualizar <span class="math inline">\(d[v]\)</span> y <span class="math inline">\(\pi[v] = u\)</span>.</li>
+<li>Repetir hasta vaciar la cola.</li>
+</ol>
+<p><strong>Complejidad:</strong> <span class="math inline">\(O(|V|^2)\)</span> con arreglo lineal; <span class="math inline">\(O((|V|+|E|)\log|V|)\)</span> con montículo binario; <span class="math inline">\(O(|V|\log|V| + |E|)\)</span> con montículo de Fibonacci <span class="citation" data-cites="fredman1987">(<a href="#ref-fredman1987" role="doc-biblioref">Fredman and Tarjan 1987</a>)</span>. El SPP pertenece a la clase <strong>P</strong> <span class="citation" data-cites="cormen2009">(<a href="#ref-cormen2009" role="doc-biblioref">Cormen et al. 2009</a>)</span>.</p>
+<p>Para grafos con pesos negativos (sin ciclos negativos), el algoritmo de Bellman-Ford <span class="citation" data-cites="bellman1958">(<a href="#ref-bellman1958" role="doc-biblioref">Bellman 1958</a>)</span> resuelve en <span class="math inline">\(O(|V| \cdot |E|)\)</span>.</p>
+</section>
+<section id="ejemplo-numérico-resuelto" class="level3">
+<h3 class="anchored" data-anchor-id="ejemplo-numérico-resuelto">Ejemplo numérico resuelto</h3>
+<p>Aplicando Dijkstra desde <span class="math inline">\(s = 1\)</span> en el grafo de ejemplo:</p>
+<table class="table-striped table-hover caption-top table">
+<caption>Ejecución paso a paso de Dijkstra.</caption>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Paso</th>
+<th style="text-align: center;">Nodo extraído</th>
+<th style="text-align: left;">Relajaciones</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">Nodo 1 (<span class="math inline">\(d=0\)</span>)</td>
+<td style="text-align: left;"><span class="math inline">\(d[2]=7\)</span>, <span class="math inline">\(d[4]=9\)</span>, <span class="math inline">\(d[5]=14\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">Nodo 2 (<span class="math inline">\(d=7\)</span>)</td>
+<td style="text-align: left;"><span class="math inline">\(d[3]=17\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">Nodo 4 (<span class="math inline">\(d=9\)</span>)</td>
+<td style="text-align: left;"><span class="math inline">\(d[5]=\min(14,11)=11\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">Nodo 5 (<span class="math inline">\(d=11\)</span>)</td>
+<td style="text-align: left;"><span class="math inline">\(d[6]=20\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">Nodo 3 (<span class="math inline">\(d=17\)</span>)</td>
+<td style="text-align: left;"><span class="math inline">\(d[6]=\min(20,28)=20\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">Nodo 6 (<span class="math inline">\(d=20\)</span>)</td>
+<td style="text-align: left;">Fin</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado:</strong> Ruta óptima <span class="math inline">\(1 \to 4 \to 5 \to 6\)</span>, costo <span class="math inline">\(= 9 + 2 + 9 = 20\)</span>. Verificado mediante LP con PuLP (costo <span class="math inline">\(= 20{,}0\)</span>).</p>
+</section>
+<section id="aplicaciones-en-sistemas-de-información" class="level3">
+<h3 class="anchored" data-anchor-id="aplicaciones-en-sistemas-de-información">Aplicaciones en sistemas de información</h3>
+<ul>
+<li><strong>Enrutamiento en redes:</strong> protocolos OSPF usan Dijkstra para rutas óptimas en redes IP <span class="citation" data-cites="cormen2009">(<a href="#ref-cormen2009" role="doc-biblioref">Cormen et al. 2009</a>)</span>.</li>
+<li><strong>Navegación y logística:</strong> Google Maps resuelve millones de consultas SPP diariamente.</li>
+<li><strong>Ruta crítica:</strong> el camino más largo en un DAG es una variante directa del SPP.</li>
+<li><strong>Redes sociales:</strong> la centralidad de intermediación requiere caminos más cortos entre pares.</li>
+</ul>
+</section>
+</section>
+<section id="problema-del-agente-viajero-tsp" class="level2">
+<h2 class="anchored" data-anchor-id="problema-del-agente-viajero-tsp">Problema del Agente Viajero (TSP)</h2>
+<section id="definición-y-circuitos-hamiltonianos" class="level3">
+<h3 class="anchored" data-anchor-id="definición-y-circuitos-hamiltonianos">Definición y circuitos hamiltonianos</h3>
+<div class="callout callout-style-default callout-note no-icon callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Definición (TSP)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Dado un grafo completo <span class="math inline">\(G = (V, E)\)</span> con <span class="math inline">\(|V| = n\)</span> y costos <span class="math inline">\(c_{ij} \geq 0\)</span>, el TSP busca un <strong>circuito hamiltoniano</strong> — un ciclo que visita cada nodo exactamente una vez — de costo mínimo.</p>
+</div>
+</div>
+<p>El número de circuitos posibles es <span class="math inline">\((n-1)!/2\)</span> (simétrico) o <span class="math inline">\((n-1)!\)</span> (asimétrico), crecimiento factorial que impide enumeración exhaustiva para <span class="math inline">\(n\)</span> grande <span class="citation" data-cites="applegate2006">(<a href="#ref-applegate2006" role="doc-biblioref">Applegate et al. 2006</a>)</span>. El primer abordaje computacional significativo del TSP fue realizado por <span class="citation" data-cites="dantzig1954">Dantzig et al. (<a href="#ref-dantzig1954" role="doc-biblioref">1954</a>)</span>, quienes resolvieron una instancia de 49 ciudades mediante planos de corte.</p>
+</section>
+<section id="formulación-matemática-mtz" class="level3">
+<h3 class="anchored" data-anchor-id="formulación-matemática-mtz">Formulación matemática (MTZ)</h3>
+<p>Formulación de Miller-Tucker-Zemlin <span class="citation" data-cites="miller1960">(<a href="#ref-miller1960" role="doc-biblioref">Miller et al. 1960</a>)</span>:</p>
+<p><strong>Variables:</strong> <span class="math inline">\(x_{ij} \in \{0,1\}\)</span> (arco en el tour); <span class="math inline">\(u_i \in \mathbb{R}\)</span>, <span class="math inline">\(i = 2,\ldots,n\)</span> (posición).</p>
+<p><span class="math display">\[
+\min \sum_{i=1}^{n} \sum_{\substack{j=1 \\ j \neq i}}^{n} c_{ij}\,x_{ij}
+\]</span></p>
+<p><strong>Restricciones de grado:</strong></p>
+<p><span class="math display">\[
+\sum_{\substack{j=1 \\ j \neq i}}^{n} x_{ij} = 1 \quad \forall\,i \qquad \sum_{\substack{i=1 \\ i \neq j}}^{n} x_{ij} = 1 \quad \forall\,j
+\]</span></p>
+<p><strong>Eliminación de subtours (MTZ):</strong></p>
+<p><span class="math display">\[
+u_i - u_j + n\,x_{ij} \leq n - 1 \quad \forall\, i,j = 2,\ldots,n,\; i \neq j
+\]</span></p>
+<p><span class="math display">\[
+1 \leq u_i \leq n-1 \quad \forall\, i = 2,\ldots,n
+\]</span></p>
+<p><span class="math display">\[
+x_{ij} \in \{0,1\}
+\]</span></p>
+<p>Las restricciones de grado aseguran grado uno; las restricciones MTZ eliminan subtours. Las <strong>variables binarias son necesarias</strong>: la matriz no es totalmente unimodular.</p>
+</section>
+<section id="complejidad-computacional" class="level3">
+<h3 class="anchored" data-anchor-id="complejidad-computacional">Complejidad computacional</h3>
+<div class="callout callout-style-default callout-warning no-icon callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Teorema
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>El TSP es <strong>NP-difícil</strong> <span class="citation" data-cites="papadimitriou1998">(<a href="#ref-papadimitriou1998" role="doc-biblioref">Papadimitriou and Steiglitz 1998</a>)</span>. El algoritmo exacto más eficiente, la programación dinámica de Held-Karp <span class="citation" data-cites="held1962">(<a href="#ref-held1962" role="doc-biblioref">Held and Karp 1962</a>)</span>, tiene complejidad <span class="math inline">\(O(n^2 \cdot 2^n)\)</span>.</p>
+</div>
+</div>
+<p>Para instancias grandes se utilizan heurísticas: vecino más cercano <span class="math inline">\(O(n^2)\)</span>, mejoras locales 2-opt <span class="citation" data-cites="croes1958">(<a href="#ref-croes1958" role="doc-biblioref">Croes 1958</a>)</span> <span class="math inline">\(O(n^2)\)</span> por iteración, metaheurísticas (genéticos, simulated annealing) <span class="citation" data-cites="laporte1992">(<a href="#ref-laporte1992" role="doc-biblioref">Laporte 1992</a>)</span>. La formulación ILP requiere técnicas de programación entera <span class="citation" data-cites="wolsey1998">(<a href="#ref-wolsey1998" role="doc-biblioref">Wolsey 1998</a>)</span>.</p>
+</section>
+<section id="ejemplo-numérico-resuelto-1" class="level3">
+<h3 class="anchored" data-anchor-id="ejemplo-numérico-resuelto-1">Ejemplo numérico resuelto</h3>
+<p>TSP simétrico de 5 ciudades:</p>
+<table class="table-striped table-hover caption-top table">
+<caption>Matriz de distancias para el TSP de 5 ciudades.</caption>
+<thead>
+<tr class="header">
+<th style="text-align: center;"></th>
+<th style="text-align: center;">A</th>
+<th style="text-align: center;">B</th>
+<th style="text-align: center;">C</th>
+<th style="text-align: center;">D</th>
+<th style="text-align: center;">E</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><strong>A</strong></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">15</td>
+<td style="text-align: center;">20</td>
+<td style="text-align: center;">6</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><strong>B</strong></td>
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">18</td>
+<td style="text-align: center;">12</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><strong>C</strong></td>
+<td style="text-align: center;">15</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">7</td>
+<td style="text-align: center;">14</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><strong>D</strong></td>
+<td style="text-align: center;">20</td>
+<td style="text-align: center;">18</td>
+<td style="text-align: center;">7</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">12</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><strong>E</strong></td>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">12</td>
+<td style="text-align: center;">14</td>
+<td style="text-align: center;">12</td>
+<td style="text-align: center;">—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resultado:</strong> Tour óptimo <span class="math inline">\(A \to B \to C \to D \to E \to A\)</span>, costo <span class="math inline">\(= 10+8+7+12+6 = 43\)</span>. Verificado por enumeración exhaustiva (24 tours) y PuLP.</p>
+</section>
+<section id="aplicaciones-en-sistemas-de-información-1" class="level3">
+<h3 class="anchored" data-anchor-id="aplicaciones-en-sistemas-de-información-1">Aplicaciones en sistemas de información</h3>
+<ul>
+<li><strong>Logística:</strong> rutas de entrega para flotas de vehículos <span class="citation" data-cites="applegate2006">(<a href="#ref-applegate2006" role="doc-biblioref">Applegate et al. 2006</a>)</span>.</li>
+<li><strong>Fabricación de circuitos:</strong> optimización de taladros en PCB.</li>
+<li><strong>Secuenciación genómica:</strong> reconstrucción de ADN como TSP sobre solapamientos <span class="citation" data-cites="laporte1992">(<a href="#ref-laporte1992" role="doc-biblioref">Laporte 1992</a>)</span>.</li>
+<li><strong>Telecomunicaciones:</strong> diseño de anillos de fibra óptica.</li>
+</ul>
+</section>
+</section>
+<section id="comparación-conceptual-y-computacional" class="level2">
+<h2 class="anchored" data-anchor-id="comparación-conceptual-y-computacional">Comparación Conceptual y Computacional</h2>
+<table class="table-striped table-hover caption-top table">
+<caption>Comparación entre SPP y TSP.</caption>
+<colgroup>
+<col style="width: 28%">
+<col style="width: 35%">
+<col style="width: 35%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Aspecto</th>
+<th style="text-align: center;">Ruta Más Corta (SPP)</th>
+<th style="text-align: center;">Agente Viajero (TSP)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>Objetivo</strong></td>
+<td style="text-align: center;">Camino de costo mínimo <span class="math inline">\(s \to t\)</span></td>
+<td style="text-align: center;">Circuito hamiltoniano mínimo</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Formulación</strong></td>
+<td style="text-align: center;">Programa Lineal (LP)</td>
+<td style="text-align: center;">Programa Lineal Entero (ILP)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Integralidad</strong></td>
+<td style="text-align: center;">Automática (unimod. total)</td>
+<td style="text-align: center;">Requiere variables binarias</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Complejidad</strong></td>
+<td style="text-align: center;">P: <span class="math inline">\(O((V+E)\log V)\)</span></td>
+<td style="text-align: center;">NP-difícil: <span class="math inline">\(O(n^2 \cdot 2^n)\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Algoritmo</strong></td>
+<td style="text-align: center;">Dijkstra, Bellman-Ford</td>
+<td style="text-align: center;">Branch-and-Cut, heurísticas</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Escalabilidad</strong></td>
+<td style="text-align: center;">Millones de nodos</td>
+<td style="text-align: center;">Miles de nodos</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Restricción clave</strong></td>
+<td style="text-align: center;">Conservación de flujo</td>
+<td style="text-align: center;">Eliminación de subtours</td>
+</tr>
+</tbody>
+</table>
+<p>La diferencia fundamental radica en la complejidad estructural: el SPP aprovecha la <strong>subestructura óptima</strong> (un subcamino óptimo es también óptimo), mientras el TSP impone una <strong>dependencia global</strong> (visitar todos los nodos) que impide descomposición eficiente. Computacionalmente, Dijkstra resuelve grafos de millones de nodos en milisegundos; el TSP exacto se vuelve impracticable más allá de decenas de nodos.</p>
+</section>
+<section id="discusión" class="level2">
+<h2 class="anchored" data-anchor-id="discusión">Discusión</h2>
+<p>La Parte II evidencia cómo la <strong>estructura combinatoria</strong> de un problema determina directamente su tratabilidad computacional. Mientras el SPP se formula como LP con integralidad garantizada y se resuelve en tiempo polinomial, el TSP requiere variables binarias y restricciones de eliminación de subtours, perteneciendo a la clase NP-difícil.</p>
+<p>La implementación computacional completa — incluyendo Dijkstra desde cero, formulación LP/ILP con PuLP, heurísticas (vecino más cercano, 2-opt) y análisis de escalabilidad — se encuentra en la pestaña <a href="./simulaciones_parte2.html">Simulaciones Parte II</a>.</p>
+</section>
+<section id="referencias" class="level2">
+
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">Referencias</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-ahuja1993" class="csl-entry" role="listitem">
+Ahuja, Ravindra K., Thomas L. Magnanti, and James B. Orlin. 1993. <em>Network Flows: Theory, Algorithms, and Applications</em>. Prentice Hall.
+</div>
+<div id="ref-applegate2006" class="csl-entry" role="listitem">
+Applegate, David L., Robert E. Bixby, Vašek Chvátal, and William J. Cook. 2006. <em>The Traveling Salesman Problem: A Computational Study</em>. Princeton University Press.
+</div>
+<div id="ref-bazaraa2010" class="csl-entry" role="listitem">
+Bazaraa, Mokhtar S., John J. Jarvis, and Hanif D. Sherali. 2010. <em>Linear Programming and Network Flows</em>. 4th ed. John Wiley &amp; Sons.
+</div>
+<div id="ref-bellman1958" class="csl-entry" role="listitem">
+Bellman, Richard. 1958. <span>“On a Routing Problem.”</span> <em>Quarterly of Applied Mathematics</em> 16 (1): 87–90.
+</div>
+<div id="ref-bertsimas1997" class="csl-entry" role="listitem">
+Bertsimas, Dimitris, and John N. Tsitsiklis. 1997. <em>Introduction to Linear Optimization</em>. Athena Scientific.
+</div>
+<div id="ref-cormen2009" class="csl-entry" role="listitem">
+Cormen, Thomas H., Charles E. Leiserson, Ronald L. Rivest, and Clifford Stein. 2009. <em>Introduction to Algorithms</em>. 3rd ed. MIT Press.
+</div>
+<div id="ref-croes1958" class="csl-entry" role="listitem">
+Croes, G. A. 1958. <span>“A Method for Solving Traveling-Salesman Problems.”</span> <em>Operations Research</em> 6 (6): 791–812. <a href="https://doi.org/10.1287/opre.6.6.791">https://doi.org/10.1287/opre.6.6.791</a>.
+</div>
+<div id="ref-dantzig1954" class="csl-entry" role="listitem">
+Dantzig, George B., D. Ray Fulkerson, and Selmer M. Johnson. 1954. <span>“Solution of a Large-Scale Traveling-Salesman Problem.”</span> <em>Operations Research</em> 2 (4): 393–410. <a href="https://doi.org/10.1287/opre.2.4.393">https://doi.org/10.1287/opre.2.4.393</a>.
+</div>
+<div id="ref-dijkstra1959" class="csl-entry" role="listitem">
+Dijkstra, Edsger W. 1959. <span>“A Note on Two Problems in Connexion with Graphs.”</span> <em>Numerische Mathematik</em> 1 (1): 269–71. <a href="https://doi.org/10.1007/BF01386390">https://doi.org/10.1007/BF01386390</a>.
+</div>
+<div id="ref-fredman1987" class="csl-entry" role="listitem">
+Fredman, Michael L., and Robert Endre Tarjan. 1987. <span>“Fibonacci Heaps and Their Uses in Improved Network Optimization Algorithms.”</span> <em>Journal of the ACM</em> 34 (3): 596–615. <a href="https://doi.org/10.1145/28869.28874">https://doi.org/10.1145/28869.28874</a>.
+</div>
+<div id="ref-held1962" class="csl-entry" role="listitem">
+Held, Michael, and Richard M. Karp. 1962. <span>“A Dynamic Programming Approach to Sequencing Problems.”</span> <em>Journal of the Society for Industrial and Applied Mathematics</em> 10 (1): 196–210. <a href="https://doi.org/10.1137/0110015">https://doi.org/10.1137/0110015</a>.
+</div>
+<div id="ref-laporte1992" class="csl-entry" role="listitem">
+Laporte, Gilbert. 1992. <span>“The Traveling Salesman Problem: An Overview of Exact and Approximate Algorithms.”</span> <em>European Journal of Operational Research</em> 59 (2): 231–47. <a href="https://doi.org/10.1016/0377-2217(92)90138-Y">https://doi.org/10.1016/0377-2217(92)90138-Y</a>.
+</div>
+<div id="ref-miller1960" class="csl-entry" role="listitem">
+Miller, Clair E., Albert W. Tucker, and Richard A. Zemlin. 1960. <span>“Integer Programming Formulation of Traveling Salesman Problems.”</span> <em>Journal of the ACM</em> 7 (4): 326–29. <a href="https://doi.org/10.1145/321043.321046">https://doi.org/10.1145/321043.321046</a>.
+</div>
+<div id="ref-papadimitriou1998" class="csl-entry" role="listitem">
+Papadimitriou, Christos H., and Kenneth Steiglitz. 1998. <em>Combinatorial Optimization: Algorithms and Complexity</em>. Dover Publications.
+</div>
+<div id="ref-schrijver2003" class="csl-entry" role="listitem">
+Schrijver, Alexander. 2003. <em>Combinatorial Optimization: Polyhedra and Efficiency</em>. Vol. 24. Algorithms and Combinatorics. Springer.
+</div>
+<div id="ref-wolsey1998" class="csl-entry" role="listitem">
+Wolsey, Laurence A. 1998. <em>Integer Programming</em>. John Wiley &amp; Sons.
+</div>
+</div></section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -1,0 +1,189 @@
+---
+title: "Parte II: Modelos de Optimización Combinatoria"
+subtitle: "Ruta Más Corta (SPP) y Agente Viajero (TSP)"
+description: "Estudio, formulación LP/ILP e implementación de los problemas de ruta más corta (Dijkstra) y del agente viajero (MTZ), con análisis de complejidad."
+categories: [Parte II, Reporte, SPP, TSP]
+image: images/parte2_thumb.svg
+---
+
+## Introducción
+
+La Parte II estudia, formula e implementa dos problemas clásicos de optimización combinatoria: el **problema de la ruta más corta** (Shortest Path Problem, SPP) y el **problema del agente viajero** (Traveling Salesman Problem, TSP). Ambos se formulan sobre grafos, pero difieren radicalmente en complejidad computacional y estrategias de solución [@schrijver2003; @papadimitriou1998].
+
+## Problema de la Ruta Más Corta (SPP)
+
+### Definición del problema y representación en grafos
+
+::: {.callout-note icon=false}
+## Definición (SPP)
+Dado un grafo dirigido $G = (V, A)$ con costos $c_{ij} \geq 0$ en cada arco $(i,j) \in A$, un nodo origen $s$ y un nodo destino $t$, el problema consiste en encontrar un camino dirigido de $s$ a $t$ de costo total mínimo [@ahuja1993; @bazaraa2010].
+:::
+
+Un **camino dirigido** de $s$ a $t$ es una secuencia $s = v_0, v_1, \ldots, v_k = t$ con $(v_{i-1}, v_i) \in A$. Su costo es $\sum_{i=1}^{k} c_{v_{i-1}, v_i}$.
+
+Se utiliza un grafo dirigido ponderado de 6 nodos como ejemplo:
+
+| Arco | $(1,2)$ | $(1,4)$ | $(1,5)$ | $(2,3)$ | $(2,5)$ | $(3,6)$ | $(4,2)$ | $(4,5)$ | $(5,6)$ |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| Costo | 7 | 9 | 14 | 10 | 15 | 11 | 6 | 2 | 9 |
+
+: Arcos y costos del grafo de ejemplo. {.striped .hover}
+
+### Formulación matemática como programa lineal
+
+La formulación como programa lineal de flujo en redes se basa en variables de flujo [@bertsimas1997; @bazaraa2010]. Se define $x_{ij} \geq 0$ para cada arco $(i,j) \in A$:
+
+$$
+\min \sum_{(i,j) \in A} c_{ij}\, x_{ij}
+$$
+
+sujeto a:
+
+$$
+\sum_{j:(i,j)\in A} x_{ij} - \sum_{j:(j,i)\in A} x_{ji} = \begin{cases} 1 & \text{si } i = s \\ -1 & \text{si } i = t \\ 0 & \text{en otro caso} \end{cases} \quad \forall\, i \in V
+$$
+
+$$
+x_{ij} \geq 0, \quad \forall\,(i,j) \in A
+$$
+
+::: {.callout-tip icon=false}
+## Integralidad natural
+La matriz de restricciones de conservación de flujo es la **matriz de incidencia** del grafo dirigido, que es **totalmente unimodular** [@ahuja1993]. Por lo tanto, la relajación LP produce soluciones enteras y **no es necesario** imponer $x_{ij} \in \{0,1\}$.
+:::
+
+### Algoritmo de Dijkstra y complejidad
+
+El algoritmo de Dijkstra [@dijkstra1959] resuelve el SPP desde un origen $s$ asumiendo $c_{ij} \geq 0$. Su funcionamiento:
+
+1. Inicializar $d[s] = 0$ y $d[v] = \infty$ para todo $v \neq s$.
+2. Extraer de la cola de prioridad el nodo $u$ con menor $d[u]$.
+3. Para cada vecino $v$ de $u$: si $d[u] + c_{uv} < d[v]$, actualizar $d[v]$ y $\pi[v] = u$.
+4. Repetir hasta vaciar la cola.
+
+**Complejidad:** $O(|V|^2)$ con arreglo lineal; $O((|V|+|E|)\log|V|)$ con montículo binario; $O(|V|\log|V| + |E|)$ con montículo de Fibonacci [@fredman1987]. El SPP pertenece a la clase **P** [@cormen2009].
+
+Para grafos con pesos negativos (sin ciclos negativos), el algoritmo de Bellman-Ford [@bellman1958] resuelve en $O(|V| \cdot |E|)$.
+
+### Ejemplo numérico resuelto
+
+Aplicando Dijkstra desde $s = 1$ en el grafo de ejemplo:
+
+| Paso | Nodo extraído | Relajaciones |
+|:---:|:---:|:---|
+| 1 | Nodo 1 ($d=0$) | $d[2]=7$, $d[4]=9$, $d[5]=14$ |
+| 2 | Nodo 2 ($d=7$) | $d[3]=17$ |
+| 3 | Nodo 4 ($d=9$) | $d[5]=\min(14,11)=11$ |
+| 4 | Nodo 5 ($d=11$) | $d[6]=20$ |
+| 5 | Nodo 3 ($d=17$) | $d[6]=\min(20,28)=20$ |
+| 6 | Nodo 6 ($d=20$) | Fin |
+
+: Ejecución paso a paso de Dijkstra. {.striped .hover}
+
+**Resultado:** Ruta óptima $1 \to 4 \to 5 \to 6$, costo $= 9 + 2 + 9 = 20$. Verificado mediante LP con PuLP (costo $= 20{,}0$).
+
+### Aplicaciones en sistemas de información
+
+- **Enrutamiento en redes:** protocolos OSPF usan Dijkstra para rutas óptimas en redes IP [@cormen2009].
+- **Navegación y logística:** Google Maps resuelve millones de consultas SPP diariamente.
+- **Ruta crítica:** el camino más largo en un DAG es una variante directa del SPP.
+- **Redes sociales:** la centralidad de intermediación requiere caminos más cortos entre pares.
+
+## Problema del Agente Viajero (TSP)
+
+### Definición y circuitos hamiltonianos
+
+::: {.callout-note icon=false}
+## Definición (TSP)
+Dado un grafo completo $G = (V, E)$ con $|V| = n$ y costos $c_{ij} \geq 0$, el TSP busca un **circuito hamiltoniano** — un ciclo que visita cada nodo exactamente una vez — de costo mínimo.
+:::
+
+El número de circuitos posibles es $(n-1)!/2$ (simétrico) o $(n-1)!$ (asimétrico), crecimiento factorial que impide enumeración exhaustiva para $n$ grande [@applegate2006]. El primer abordaje computacional significativo del TSP fue realizado por @dantzig1954, quienes resolvieron una instancia de 49 ciudades mediante planos de corte.
+
+### Formulación matemática (MTZ)
+
+Formulación de Miller-Tucker-Zemlin [@miller1960]:
+
+**Variables:** $x_{ij} \in \{0,1\}$ (arco en el tour); $u_i \in \mathbb{R}$, $i = 2,\ldots,n$ (posición).
+
+$$
+\min \sum_{i=1}^{n} \sum_{\substack{j=1 \\ j \neq i}}^{n} c_{ij}\,x_{ij}
+$$
+
+**Restricciones de grado:**
+
+$$
+\sum_{\substack{j=1 \\ j \neq i}}^{n} x_{ij} = 1 \quad \forall\,i \qquad \sum_{\substack{i=1 \\ i \neq j}}^{n} x_{ij} = 1 \quad \forall\,j
+$$
+
+**Eliminación de subtours (MTZ):**
+
+$$
+u_i - u_j + n\,x_{ij} \leq n - 1 \quad \forall\, i,j = 2,\ldots,n,\; i \neq j
+$$
+
+$$
+1 \leq u_i \leq n-1 \quad \forall\, i = 2,\ldots,n
+$$
+
+$$
+x_{ij} \in \{0,1\}
+$$
+
+Las restricciones de grado aseguran grado uno; las restricciones MTZ eliminan subtours. Las **variables binarias son necesarias**: la matriz no es totalmente unimodular.
+
+### Complejidad computacional
+
+::: {.callout-warning icon=false}
+## Teorema
+El TSP es **NP-difícil** [@papadimitriou1998]. El algoritmo exacto más eficiente, la programación dinámica de Held-Karp [@held1962], tiene complejidad $O(n^2 \cdot 2^n)$.
+:::
+
+Para instancias grandes se utilizan heurísticas: vecino más cercano $O(n^2)$, mejoras locales 2-opt [@croes1958] $O(n^2)$ por iteración, metaheurísticas (genéticos, simulated annealing) [@laporte1992]. La formulación ILP requiere técnicas de programación entera [@wolsey1998].
+
+### Ejemplo numérico resuelto
+
+TSP simétrico de 5 ciudades:
+
+| | A | B | C | D | E |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| **A** | — | 10 | 15 | 20 | 6 |
+| **B** | 10 | — | 8 | 18 | 12 |
+| **C** | 15 | 8 | — | 7 | 14 |
+| **D** | 20 | 18 | 7 | — | 12 |
+| **E** | 6 | 12 | 14 | 12 | — |
+
+: Matriz de distancias para el TSP de 5 ciudades. {.striped .hover}
+
+**Resultado:** Tour óptimo $A \to B \to C \to D \to E \to A$, costo $= 10+8+7+12+6 = 43$. Verificado por enumeración exhaustiva (24 tours) y PuLP.
+
+### Aplicaciones en sistemas de información
+
+- **Logística:** rutas de entrega para flotas de vehículos [@applegate2006].
+- **Fabricación de circuitos:** optimización de taladros en PCB.
+- **Secuenciación genómica:** reconstrucción de ADN como TSP sobre solapamientos [@laporte1992].
+- **Telecomunicaciones:** diseño de anillos de fibra óptica.
+
+## Comparación Conceptual y Computacional
+
+| Aspecto | Ruta Más Corta (SPP) | Agente Viajero (TSP) |
+|:---|:---:|:---:|
+| **Objetivo** | Camino de costo mínimo $s \to t$ | Circuito hamiltoniano mínimo |
+| **Formulación** | Programa Lineal (LP) | Programa Lineal Entero (ILP) |
+| **Integralidad** | Automática (unimod. total) | Requiere variables binarias |
+| **Complejidad** | P: $O((V+E)\log V)$ | NP-difícil: $O(n^2 \cdot 2^n)$ |
+| **Algoritmo** | Dijkstra, Bellman-Ford | Branch-and-Cut, heurísticas |
+| **Escalabilidad** | Millones de nodos | Miles de nodos |
+| **Restricción clave** | Conservación de flujo | Eliminación de subtours |
+
+: Comparación entre SPP y TSP. {.striped .hover}
+
+La diferencia fundamental radica en la complejidad estructural: el SPP aprovecha la **subestructura óptima** (un subcamino óptimo es también óptimo), mientras el TSP impone una **dependencia global** (visitar todos los nodos) que impide descomposición eficiente. Computacionalmente, Dijkstra resuelve grafos de millones de nodos en milisegundos; el TSP exacto se vuelve impracticable más allá de decenas de nodos.
+
+## Discusión
+
+La Parte II evidencia cómo la **estructura combinatoria** de un problema determina directamente su tratabilidad computacional. Mientras el SPP se formula como LP con integralidad garantizada y se resuelve en tiempo polinomial, el TSP requiere variables binarias y restricciones de eliminación de subtours, perteneciendo a la clase NP-difícil.
+
+La implementación computacional completa — incluyendo Dijkstra desde cero, formulación LP/ILP con PuLP, heurísticas (vecino más cercano, 2-opt) y análisis de escalabilidad — se encuentra en la pestaña [Simulaciones Parte II](simulaciones_parte2.ipynb).
+
+## Referencias

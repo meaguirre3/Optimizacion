@@ -1,0 +1,37 @@
+---
+title: "About"
+subtitle: "Modelización Matemática y Modelos de Optimización Combinatoria"
+author: "Marco Esteban Aguirre Rojas"
+---
+
+## Acerca de este sitio
+
+Este sitio web presenta la **resolución de la Tarea 1** de la asignatura *Tópicos Especiales 1: Sistemas de Información 1*, correspondiente al programa de **Doctorado en Informática de la Escuela Politécnica Nacional (EPN)**.
+
+El trabajo fue realizado por **Marco Esteban Aguirre Rojas**, como parte de las actividades académicas del programa doctoral.
+
+La tarea comprende la formulación matemática, implementación computacional y resolución de los problemas de optimización propuestos, utilizando herramientas de programación matemática y Python.
+
+El sitio contiene el desarrollo del deber, los modelos matemáticos, las implementaciones y los resultados obtenidos.
+
+El **informe académico completo** y los materiales complementarios se encuentran disponibles en las diferentes secciones de este sitio web.
+
+## Información académica
+
+- **Institución:** Escuela Politécnica Nacional (EPN).
+- **Programa:** Doctorado en Informática.
+- **Asignatura:** Tópicos Especiales 1: Sistemas de Información 1.
+- **Tema:** Modelización Matemática y Modelos de Optimización Combinatoria.
+- **Actividad:** Tarea 1.
+- **Autor:** Marco Esteban Aguirre Rojas.
+- **Fecha de entrega:** 9 de noviembre de 2026.
+
+## Página web personal
+
+Para conocer más sobre mis proyectos académicos, investigaciones y trabajos desarrollados, puede visitar mi página web:
+
+**[Marco Esteban Aguirre Rojas — Sitio web personal](https://meaguirre3.github.io/QUARTO/)**
+
+---
+
+© 2026 Marco Esteban Aguirre Rojas | Doctorado en Informática — Escuela Politécnica Nacional.

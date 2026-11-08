@@ -1,0 +1,41 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Tópicos Especiales 1"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Inicio
+      - text: Parte I
+        menu:
+          - href: parte1.qmd
+            text: Reporte
+          - href: presentacion_parte1.qmd
+            text: Presentación
+          - href: parte1_implementacion.ipynb
+            text: Implementación
+      - text: Parte II
+        menu:
+          - href: parte2.qmd
+            text: Reporte
+          - href: presentacion_parte2.qmd
+            text: Presentación
+          - href: simulaciones_parte2.ipynb
+            text: Simulaciones
+      - about.qmd
+
+bibliography: referencias.bib
+
+
+format:
+  html:
+    theme:
+      - cosmo
+      - brand
+    css: styles.css
+    toc: true
+
+
+

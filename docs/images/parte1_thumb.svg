@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="200" rx="12" fill="url(#g1)"/>
+  <text x="200" y="70" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" font-weight="bold" fill="#4fc3f7">LP</text>
+  <text x="200" y="105" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#e0e0e0">Programación Lineal</text>
+  <line x1="120" y1="120" x2="280" y2="120" stroke="#e94560" stroke-width="2"/>
+  <text x="200" y="150" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#aaa">max Z = Σ uᵢxᵢ</text>
+  <text x="200" y="175" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#666">scipy · PuLP · ILP</text>
+</svg>

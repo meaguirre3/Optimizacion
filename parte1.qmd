@@ -1,0 +1,164 @@
+---
+title: "Parte I: Modelo de Programación Lineal"
+subtitle: "Vinculado con la Tesis Doctoral"
+description: "Formulación y resolución de un modelo LP/ILP para la selección óptima de preguntas en un chatbot conversacional, con implementación en scipy y PuLP."
+categories: [Parte I, Reporte, LP, ILP]
+image: images/parte1_thumb.svg
+---
+
+## Contexto y justificación
+
+La investigación doctoral **"Agentic Conversational User Modeling Framework for Question Recommendation"** propone un framework basado en agentes de inteligencia artificial para la generación, evaluación y recomendación contextual de preguntas en sistemas conversacionales.
+
+Los sistemas de recomendación conversacionales establecen interacciones dinámicas con los usuarios mediante preguntas y respuestas para identificar necesidades y preferencias [@jannach2021survey; @christakopoulou2016towards; @gao2021advances]. Actualmente, los modelos de lenguaje de gran tamaño (LLM) pueden generar múltiples preguntas a partir del contexto de interacción [@sun2018conversational]; sin embargo, presentar demasiadas preguntas aumenta la carga cognitiva y afecta negativamente la experiencia del usuario [@zhang2018towards; @lei2020interactive].
+
+Uno de los desafíos centrales consiste en seleccionar un conjunto limitado de preguntas que maximice la relevancia y la ganancia de información esperada, respetando restricciones de carga cognitiva, latencia y diversidad de propósitos conversacionales. Este problema de decisión admite formulación como programa lineal.
+
+## Definición del problema
+
+Una empresa tecnológica desarrolla un chatbot inteligente que recomienda preguntas iniciales al usuario. El sistema dispone de agentes de IA que analizan contenido, generan preguntas candidatas y estiman indicadores de calidad. Se establece que el chatbot no debe presentar más de cuatro preguntas en su interfaz inicial.
+
+El sistema genera $n = 9$ preguntas candidatas clasificadas en tres categorías:
+
+- **Clarificación ($C$):** preguntas que precisan información del contenido.
+- **Preferencias ($P$):** preguntas que personalizan la exploración según intereses.
+- **Objetivos ($O$):** preguntas que profundizan en el conocimiento.
+
+Cada pregunta $i$ tiene asociados cuatro parámetros: relevancia $r_i$, ganancia de información $g_i$, carga cognitiva $a_i$ y latencia $\ell_i$.
+
+**Decisiones:** qué preguntas recomendar al inicio de la conversación.
+
+**Objetivo:** maximizar la utilidad total de las preguntas seleccionadas.
+
+**Restricciones:** máximo de preguntas, presupuesto de carga cognitiva, presupuesto de latencia y cobertura mínima por categoría.
+
+## Parámetros del modelo
+
+La utilidad de cada pregunta se calcula mediante:
+
+$$
+u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
+$$
+
+| Pregunta | Categoría | $r_i$ | $g_i$ | $a_i$ | $\ell_i$ |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| $Q_1$ | Clarificación | 0.90 | 0.90 | 1.60 | 0.75 |
+| $Q_2$ | Clarificación | 0.80 | 0.72 | 1.10 | 0.55 |
+| $Q_3$ | Clarificación | 0.72 | 0.78 | 0.95 | 0.70 |
+| $Q_4$ | Preferencias | 0.89 | 0.84 | 1.40 | 0.80 |
+| $Q_5$ | Preferencias | 0.80 | 0.76 | 1.10 | 0.45 |
+| $Q_6$ | Preferencias | 0.70 | 0.67 | 0.85 | 0.40 |
+| $Q_7$ | Objetivos | 0.92 | 0.88 | 1.70 | 1.00 |
+| $Q_8$ | Objetivos | 0.77 | 0.80 | 1.20 | 0.65 |
+| $Q_9$ | Objetivos | 0.75 | 0.68 | 0.85 | 0.50 |
+
+: Parámetros de las preguntas candidatas (datos sintéticos normalizados). {.striped .hover}
+
+Parámetros del sistema: máximo de preguntas $M=4$, presupuesto de carga cognitiva $B=4{,}70$, presupuesto de latencia $L=2{,}80$, cobertura mínima por categoría $m_k=0{,}70$.
+
+## Formulación matemática
+
+### Modelo de planificación continuo (Programa Lineal)
+
+Sea $x_i \in [0,1]$ la proporción esperada de sesiones en las que se recomienda la pregunta $i$.
+
+**Conjuntos e índices:**
+
+- $I = \{1, 2, \ldots, 9\}$: conjunto de preguntas candidatas.
+- $K = \{C, P, O\}$: conjunto de categorías.
+- $I_k \subseteq I$: subconjunto de preguntas de la categoría $k$.
+
+**Parámetros:** $r_i$, $g_i$, $a_i$, $\ell_i$; $M=4$, $B=4{,}70$, $L=2{,}80$, $m_k=0{,}70$.
+
+**Función objetivo:**
+
+$$
+\max\; Z = \sum_{i=1}^{9} \bigl(0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i\bigr)\,x_i
+$$
+
+**Restricciones:**
+
+$$
+\sum_{i=1}^{9} x_i \leq 4 \qquad \text{(máximo de preguntas)}
+$$
+
+$$
+\sum_{i=1}^{9} a_i\,x_i \leq 4{,}70 \qquad \text{(presupuesto de carga cognitiva)}
+$$
+
+$$
+\sum_{i=1}^{9} \ell_i\,x_i \leq 2{,}80 \qquad \text{(presupuesto de latencia)}
+$$
+
+$$
+\sum_{i \in I_k} x_i \geq 0{,}70 \qquad \forall\, k \in \{C, P, O\} \quad \text{(cobertura)}
+$$
+
+$$
+0 \leq x_i \leq 1 \qquad \forall\, i \in I
+$$
+
+Este modelo es **completamente lineal**: la función objetivo es lineal en $x_i$, y todas las restricciones son desigualdades lineales. Se resuelve con [`scipy.optimize.linprog`](parte1_implementacion.ipynb).
+
+### Extensión binaria (Programa Lineal Entero)
+
+Para cumplir la condición empresarial de seleccionar exactamente hasta cuatro preguntas concretas, se introduce la variable binaria:
+
+$$
+y_i \in \{0, 1\}, \quad
+y_i = \begin{cases} 1 & \text{si se recomienda la pregunta } i, \\ 0 & \text{en caso contrario.} \end{cases}
+$$
+
+Se sustituye $x_i$ por $y_i$ en las ecuaciones del modelo continuo, y el dominio pasa a ser binario. Esta formulación es de **programación lineal entera binaria** (PLIB) y se resuelve con PuLP.
+
+## Implementación y resultados
+
+### Solución del modelo continuo (LP)
+
+La solución óptima del LP, obtenida con `scipy.optimize.linprog`, alcanza una utilidad de $Z^* \approx 2{,}8348$, con asignaciones fraccionarias que distribuyen la recomendación entre más de cuatro preguntas.
+
+### Solución del modelo binario (ILP)
+
+La solución óptima del ILP selecciona las preguntas $Q_3$, $Q_4$, $Q_5$ y $Q_8$:
+
+| Pregunta | Utilidad $u_i$ | Decisión |
+|:---:|:---:|:---:|
+| $Q_3$ | 0.6710 | Seleccionada |
+| $Q_4$ | 0.7555 | Seleccionada |
+| $Q_5$ | 0.6940 | Seleccionada |
+| $Q_8$ | 0.6875 | Seleccionada |
+
+: Solución óptima del modelo binario. {.striped .hover}
+
+**Utilidad óptima entera:** $Z^*_{\text{ILP}} = 2{,}8080$.
+
+**Recursos utilizados:** carga cognitiva $= 4{,}65 \leq 4{,}70$; latencia $= 2{,}60 \leq 2{,}80$.
+
+**Cobertura:** $Q_3 \in C$, $Q_4, Q_5 \in P$, $Q_8 \in O$ — al menos una pregunta por categoría.
+
+La diferencia entre la solución continua ($2{,}8348$) y la entera ($2{,}8080$) ilustra la **brecha de integralidad**: la relajación LP proporciona una cota superior, mientras que el ILP da la solución operativa implementable.
+
+## Análisis de sensibilidad
+
+Se realizó análisis de sensibilidad variando los parámetros críticos:
+
+- **Presupuesto de carga cognitiva:** Al reducir $B$ de $4{,}70$ a $4{,}00$, la solución cambia: se excluye $Q_4$ (carga alta) y se incluye $Q_6$ (carga baja), reduciéndose la utilidad a $\approx 2{,}55$.
+- **Presupuesto de latencia:** Al reducir $L$ de $2{,}80$ a $2{,}00$, la restricción de latencia se vuelve activa y se priorizan preguntas con baja latencia ($Q_5$, $Q_6$, $Q_9$).
+- **Número de preguntas:** Con $M=3$, la utilidad disminuye a $\approx 2{,}12$; con $M=5$, aumenta a $\approx 3{,}43$ pero puede exceder los presupuestos.
+
+Las restricciones activas en la solución base son la de carga cognitiva (holgura de $0{,}05$) y la de máximo de preguntas (ajustada exactamente a 4).
+
+## Discusión crítica
+
+**Limitaciones:**
+
+- Los parámetros son sintéticos; en un sistema real, deberían estimarse mediante retroalimentación de usuarios y métricas de interacción.
+- La función de utilidad lineal es una simplificación; efectos de sinergia o redundancia entre preguntas no se capturan.
+- El modelo es estático: no considera la evolución de la conversación ni el aprendizaje dinámico.
+
+**Extensiones posibles:**
+
+- **Programación entera:** ya implementada como extensión binaria.
+- **Optimización multiobjetivo:** maximizar simultáneamente relevancia y diversidad.
+- **Programación estocástica:** modelar incertidumbre en los parámetros de utilidad.
+- **Optimización secuencial:** extender a políticas de recomendación adaptativas durante la conversación.

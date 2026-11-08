@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
+  <defs>
+    <linearGradient id="gp2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="200" rx="12" fill="url(#gp2)"/>
+  <rect x="80" y="30" width="240" height="135" rx="6" fill="none" stroke="#4fc3f7" stroke-width="1.5"/>
+  <circle cx="140" cy="70" r="8" fill="none" stroke="#e94560" stroke-width="2"/>
+  <circle cx="200" cy="55" r="8" fill="none" stroke="#e94560" stroke-width="2"/>
+  <circle cx="260" cy="70" r="8" fill="none" stroke="#e94560" stroke-width="2"/>
+  <circle cx="170" cy="110" r="8" fill="none" stroke="#e94560" stroke-width="2"/>
+  <circle cx="230" cy="110" r="8" fill="none" stroke="#e94560" stroke-width="2"/>
+  <line x1="148" y1="70" x2="192" y2="58" stroke="#4fc3f7" stroke-width="2"/>
+  <line x1="208" y1="58" x2="252" y2="67" stroke="#4fc3f7" stroke-width="2"/>
+  <line x1="255" y1="78" x2="236" y2="103" stroke="#4fc3f7" stroke-width="2"/>
+  <line x1="223" y1="115" x2="177" y2="115" stroke="#4fc3f7" stroke-width="2"/>
+  <line x1="164" y1="104" x2="145" y2="78" stroke="#4fc3f7" stroke-width="2"/>
+  <text x="200" y="185" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#aaa">Presentación SPP/TSP · reveal.js</text>
+</svg>

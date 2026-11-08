@@ -1,0 +1,917 @@
+---
+title: "Optimización Combinatoria: SPP y TSP"
+subtitle: "Ruta Más Corta y Agente Viajero — Parte II"
+description: "Presentación reveal.js de los problemas de ruta más corta (Dijkstra) y agente viajero (MTZ) con código ejecutable."
+categories: [Parte II, Presentación, SPP, TSP]
+image: images/pres2_thumb.svg
+author: "Tópicos Especiales 1 · Doctorado en Informática"
+institute: "Escuela Politécnica Nacional"
+date: "Noviembre 2026"
+format:
+  revealjs:
+    theme: [default, presentacion_styles.scss]
+    slide-number: true
+    progress: true
+    hash: true
+    transition: slide
+    background-transition: fade
+    highlight-style: monokai
+    code-line-numbers: true
+    code-overflow: wrap
+    fig-align: center
+    width: 1280
+    height: 720
+    margin: 0.1
+    center: true
+    navigation-mode: vertical
+    controls-layout: bottom-right
+    logo: ""
+    footer: "Tópicos Especiales 1 — Optimización Combinatoria"
+    title-slide-attributes:
+      data-background-gradient: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)"
+      data-background-opacity: "1"
+bibliography: referencias.bib
+csl: ieee.csl
+execute:
+  echo: true
+  warning: false
+---
+
+## Agenda {background-color="#16213e"}
+
+::: {.incremental}
+1. **SPP** — Definición y formulación LP
+2. **Dijkstra** — Algoritmo e implementación
+3. **TSP** — Definición y formulación ILP (MTZ)
+4. **Implementación** — Exacta y heurísticas
+5. **Comparación** — P vs NP-difícil
+6. **Conclusiones**
+:::
+
+# Problema de la Ruta Más Corta {background-color="#0f3460"}
+
+## Definición del SPP
+
+::: {.columns}
+::: {.column width="55%"}
+
+Dado un grafo dirigido $G = (V, A)$ con costos $c_{ij} \geq 0$, un origen $s$ y un destino $t$ [@ahuja1993; @bazaraa2010]:
+
+::: {.fragment}
+**Encontrar** el camino dirigido de $s$ a $t$ de **costo total mínimo**.
+:::
+
+::: {.fragment}
+::: {.callout-note icon=false}
+## Aplicaciones
+- Protocolos de red OSPF [@cormen2009]
+- Navegación GPS
+- Ruta crítica en proyectos
+- Centralidad en redes sociales
+:::
+:::
+
+:::
+::: {.column width="45%"}
+
+```{python}
+#| echo: false
+#| fig-align: center
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
+
+fig, ax = plt.subplots(figsize=(5.5, 5))
+fig.set_facecolor('#1a1a2e')
+ax.set_facecolor('#1a1a2e')
+ax.axis('off')
+ax.set_xlim(-0.5, 5.5)
+ax.set_ylim(-0.5, 4)
+
+nodes = {1:(0,2), 2:(2,3.2), 3:(4,3.2), 4:(1,0.5), 5:(3,0.5), 6:(5,1.8)}
+edges = [(1,2,7),(1,4,9),(1,5,14),(2,3,10),(2,5,15),(3,6,11),(4,2,6),(4,5,2),(5,6,9)]
+path = [(1,4),(4,5),(5,6)]
+
+for u,v,w in edges:
+    x0,y0 = nodes[u]; x1,y1 = nodes[v]
+    is_path = (u,v) in path
+    color = '#e94560' if is_path else '#555'
+    lw = 3 if is_path else 1.2
+    ax.annotate('', xy=(x1,y1), xytext=(x0,y0),
+                arrowprops=dict(arrowstyle='->', color=color, lw=lw))
+    mx, my = (x0+x1)/2, (y0+y1)/2
+    offset = 0.15
+    dx, dy = x1-x0, y1-y0
+    norm = (dx**2+dy**2)**0.5
+    if norm > 0:
+        px, py = -dy/norm*offset, dx/norm*offset
+    else:
+        px, py = 0, offset
+    ax.text(mx+px, my+py, str(w), ha='center', va='center',
+            fontsize=9, color='#4fc3f7', fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='#1a1a2e',
+                      edgecolor='#333', alpha=0.9))
+
+for n, (x,y) in nodes.items():
+    is_path = n in [1,4,5,6]
+    color = '#e94560' if is_path else '#16213e'
+    ec = '#4fc3f7' if not is_path else '#fff'
+    circle = plt.Circle((x,y), 0.3, facecolor=color, edgecolor=ec, linewidth=2, zorder=5)
+    ax.add_patch(circle)
+    ax.text(x, y, str(n), ha='center', va='center', fontsize=13,
+            color='white', fontweight='bold', zorder=6)
+
+ax.text(2.5, -0.3, 'Ruta óptima: 1→4→5→6  (costo = 20)',
+        ha='center', fontsize=10, color='#e94560', fontweight='bold')
+plt.tight_layout()
+plt.show()
+```
+
+:::
+:::
+
+## Formulación LP
+
+$$\min \sum_{(i,j) \in A} c_{ij}\, x_{ij}$$
+
+::: {.fragment}
+**Restricciones de conservación de flujo:**
+
+$$\sum_{j:(i,j)\in A} x_{ij} - \sum_{j:(j,i)\in A} x_{ji} = \begin{cases} 1 & i = s \\ -1 & i = t \\ 0 & \text{otro caso} \end{cases}$$
+:::
+
+::: {.fragment}
+::: {.callout-tip icon=false}
+## Integralidad natural
+La matriz de incidencia es **totalmente unimodular** [@ahuja1993] $\Rightarrow$ la relajación LP produce soluciones enteras automáticamente. **No se requieren variables binarias** [@bertsimas1997].
+:::
+:::
+
+## Algoritmo de Dijkstra [@dijkstra1959]
+
+::: {.columns}
+::: {.column width="50%"}
+
+**Pseudocódigo:**
+
+1. $d[s] \leftarrow 0$; $d[v] \leftarrow \infty$ para $v \neq s$
+2. $Q \leftarrow V$ (cola de prioridad)
+3. **Mientras** $Q \neq \emptyset$:
+   - Extraer $u = \arg\min_{v \in Q} d[v]$
+   - Para cada $(u,v) \in A$:
+     - Si $d[u] + c_{uv} < d[v]$:
+       - $d[v] \leftarrow d[u] + c_{uv}$
+
+:::
+::: {.column width="50%"}
+
+::: {.fragment}
+**Complejidad:**
+
+| Estructura | Complejidad |
+|:---|:---:|
+| Arreglo lineal | $O(|V|^2)$ |
+| Montículo binario | $O((|V|+|E|)\log|V|)$ |
+| Fibonacci [@fredman1987] | $O(|V|\log|V|+|E|)$ |
+
+El SPP pertenece a la clase **P** [@cormen2009].
+:::
+
+:::
+:::
+
+## Implementación — Dijkstra
+
+```{python}
+#| code-fold: false
+#| code-line-numbers: "|1-2|4-11|13-17"
+import heapq
+
+def dijkstra(graph, source):
+    dist = {n: float('inf') for n in graph}
+    prev = {n: None for n in graph}
+    dist[source] = 0
+    heap = [(0, source)]
+    visited = set()
+    while heap:
+        d_u, u = heapq.heappop(heap)
+        if u in visited: continue
+        visited.add(u)
+        for v, w in graph[u]:
+            if v not in visited and d_u + w < dist[v]:
+                dist[v] = d_u + w
+                prev[v] = u
+                heapq.heappush(heap, (dist[v], v))
+    return dist, prev
+```
+
+## Ejecución paso a paso
+
+```{python}
+#| code-fold: true
+graph = {1:[(2,7),(4,9),(5,14)], 2:[(3,10),(5,15)],
+         3:[(6,11)], 4:[(2,6),(5,2)], 5:[(6,9)], 6:[]}
+
+dist, prev = dijkstra(graph, 1)
+
+path = []
+n = 6
+while n: path.append(n); n = prev[n]
+path.reverse()
+
+print('=== Dijkstra: nodo 1 → nodo 6 ===')
+print(f'Ruta: {" → ".join(map(str, path))}')
+print(f'Costo: {dist[6]}')
+print()
+for node in sorted(dist):
+    print(f'  d[{node}] = {dist[node]}')
+```
+
+## Dijkstra paso a paso (1/3) {.smaller}
+
+```{python}
+#| echo: false
+#| fig-align: center
+
+nodes_pos = {1:(0,2), 2:(2,3.2), 3:(4,3.2), 4:(1,0.5), 5:(3,0.5), 6:(5,1.8)}
+edges_g = [(1,2,7),(1,4,9),(1,5,14),(2,3,10),(2,5,15),(3,6,11),(4,2,6),(4,5,2),(5,6,9)]
+
+def draw_dijkstra_step(ax, visited, current, dists, relaxed_edges, step_num, description):
+    ax.set_facecolor('#1a1a2e')
+    ax.axis('off')
+    ax.set_xlim(-0.7, 5.7)
+    ax.set_ylim(-0.8, 4.2)
+    for u,v,w in edges_g:
+        x0,y0 = nodes_pos[u]; x1,y1 = nodes_pos[v]
+        is_relax = (u,v) in relaxed_edges
+        color = '#ffb74d' if is_relax else '#444'
+        lw = 2.5 if is_relax else 1
+        ax.annotate('', xy=(x1,y1), xytext=(x0,y0),
+                    arrowprops=dict(arrowstyle='->', color=color, lw=lw))
+        mx, my = (x0+x1)/2, (y0+y1)/2
+        dx, dy = x1-x0, y1-y0
+        norm = max((dx**2+dy**2)**0.5, 0.01)
+        px, py = -dy/norm*0.18, dx/norm*0.18
+        ax.text(mx+px, my+py, str(w), ha='center', va='center', fontsize=8,
+                color='#4fc3f7', bbox=dict(boxstyle='round,pad=0.1', facecolor='#1a1a2e', edgecolor='#333', alpha=0.9))
+    for n, (x,y) in nodes_pos.items():
+        if n == current:
+            fc = '#e94560'
+            ec = '#fff'
+        elif n in visited:
+            fc = '#2e7d32'
+            ec = '#81c784'
+        else:
+            fc = '#16213e'
+            ec = '#4fc3f7'
+        circle = plt.Circle((x,y), 0.32, facecolor=fc, edgecolor=ec, linewidth=2, zorder=5)
+        ax.add_patch(circle)
+        ax.text(x, y, str(n), ha='center', va='center', fontsize=12, color='white', fontweight='bold', zorder=6)
+        d_val = dists.get(n, float('inf'))
+        d_str = str(d_val) if d_val != float('inf') else '∞'
+        ax.text(x, y-0.55, f'd={d_str}', ha='center', va='center', fontsize=8, color='#aaa')
+    ax.set_title(f'Paso {step_num}: {description}', fontsize=11, color='white', pad=8)
+
+fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+fig.set_facecolor('#1a1a2e')
+
+draw_dijkstra_step(axes[0], set(), 1,
+    {1:0, 2:float('inf'), 3:float('inf'), 4:float('inf'), 5:float('inf'), 6:float('inf')},
+    set(), 0, 'Inicialización d[1]=0')
+
+draw_dijkstra_step(axes[1], {1}, 1,
+    {1:0, 2:7, 3:float('inf'), 4:9, 5:14, 6:float('inf')},
+    {(1,2),(1,4),(1,5)}, 1, 'Extraer nodo 1 → relajar 2,4,5')
+
+draw_dijkstra_step(axes[2], {1,2}, 2,
+    {1:0, 2:7, 3:17, 4:9, 5:14, 6:float('inf')},
+    {(2,3)}, 2, 'Extraer nodo 2 → relajar 3')
+
+plt.tight_layout()
+plt.show()
+```
+
+## Dijkstra paso a paso (2/3) {.smaller}
+
+```{python}
+#| echo: false
+#| fig-align: center
+
+fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+fig.set_facecolor('#1a1a2e')
+
+draw_dijkstra_step(axes[0], {1,2,4}, 4,
+    {1:0, 2:7, 3:17, 4:9, 5:11, 6:float('inf')},
+    {(4,5)}, 3, 'Extraer nodo 4 → d[5]: 14→11')
+
+draw_dijkstra_step(axes[1], {1,2,4,5}, 5,
+    {1:0, 2:7, 3:17, 4:9, 5:11, 6:20},
+    {(5,6)}, 4, 'Extraer nodo 5 → d[6]=20')
+
+draw_dijkstra_step(axes[2], {1,2,3,4,5}, 3,
+    {1:0, 2:7, 3:17, 4:9, 5:11, 6:20},
+    set(), 5, 'Extraer nodo 3 → sin mejoras')
+
+plt.tight_layout()
+plt.show()
+```
+
+## Dijkstra paso a paso (3/3) — Resultado {.smaller}
+
+```{python}
+#| echo: false
+#| fig-align: center
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5), gridspec_kw={'width_ratios': [1.3, 1]})
+fig.set_facecolor('#1a1a2e')
+
+# Grafo final con ruta resaltada
+ax1.set_facecolor('#1a1a2e')
+ax1.axis('off')
+ax1.set_xlim(-0.7, 5.7)
+ax1.set_ylim(-0.8, 4.2)
+opt_path = {(1,4),(4,5),(5,6)}
+for u,v,w in edges_g:
+    x0,y0 = nodes_pos[u]; x1,y1 = nodes_pos[v]
+    is_opt = (u,v) in opt_path
+    color = '#e94560' if is_opt else '#444'
+    lw = 3.5 if is_opt else 1
+    ax1.annotate('', xy=(x1,y1), xytext=(x0,y0),
+                arrowprops=dict(arrowstyle='->', color=color, lw=lw))
+    mx, my = (x0+x1)/2, (y0+y1)/2
+    dx, dy = x1-x0, y1-y0
+    norm = max((dx**2+dy**2)**0.5, 0.01)
+    px, py = -dy/norm*0.18, dx/norm*0.18
+    ax1.text(mx+px, my+py, str(w), ha='center', va='center', fontsize=8,
+            color='#4fc3f7', bbox=dict(boxstyle='round,pad=0.1', facecolor='#1a1a2e', edgecolor='#333', alpha=0.9))
+for n, (x,y) in nodes_pos.items():
+    is_opt = n in [1,4,5,6]
+    fc = '#e94560' if is_opt else '#16213e'
+    ec = '#fff' if is_opt else '#4fc3f7'
+    circle = plt.Circle((x,y), 0.32, facecolor=fc, edgecolor=ec, linewidth=2, zorder=5)
+    ax1.add_patch(circle)
+    ax1.text(x, y, str(n), ha='center', va='center', fontsize=12, color='white', fontweight='bold', zorder=6)
+ax1.set_title('Ruta óptima: 1→4→5→6 (costo=20)', fontsize=11, color='#e94560', pad=8)
+
+# Tabla resumen
+ax2.set_facecolor('#1a1a2e')
+ax2.axis('off')
+rows_d = [['Paso', 'Nodo', 'Relajaciones'],
+          ['1', '1 (d=0)', 'd[2]=7, d[4]=9, d[5]=14'],
+          ['2', '2 (d=7)', 'd[3]=17'],
+          ['3', '4 (d=9)', 'd[5]: 14→11'],
+          ['4', '5 (d=11)', 'd[6]=20'],
+          ['5', '3 (d=17)', '—'],
+          ['6', '6 (d=20)', 'Fin']]
+colors_d = [['#0f3460']*3] + [['#1e2a45' if i%2==0 else '#1a1a2e']*3 for i in range(6)]
+tbl = ax2.table(cellText=rows_d, cellColours=colors_d, loc='center', cellLoc='center')
+tbl.auto_set_font_size(False)
+tbl.set_fontsize(9)
+tbl.scale(1, 1.6)
+for (r,c), cell in tbl.get_celld().items():
+    cell.set_edgecolor('#333')
+    if r == 0:
+        cell.set_text_props(color='#4fc3f7', fontweight='bold')
+    else:
+        cell.set_text_props(color='#e0e0e0')
+ax2.set_title('Tabla de pasos', fontsize=11, color='white', pad=8)
+
+plt.tight_layout()
+plt.show()
+```
+
+## Verificación LP con PuLP
+
+```{python}
+#| code-fold: true
+from pulp import LpProblem, LpMinimize, LpVariable, LpContinuous, lpSum, value
+
+prob = LpProblem('SPP', LpMinimize)
+arcs = [(1,2,7),(1,4,9),(1,5,14),(2,3,10),(2,5,15),
+        (3,6,11),(4,2,6),(4,5,2),(5,6,9)]
+x = {(u,v): LpVariable(f'x_{u}_{v}', 0, cat=LpContinuous) for u,v,_ in arcs}
+
+prob += lpSum(w*x[(u,v)] for u,v,w in arcs)
+
+nodes_all = {1,2,3,4,5,6}
+for i in nodes_all:
+    out = lpSum(x[(u,v)] for u,v,_ in arcs if u==i)
+    inp = lpSum(x[(u,v)] for u,v,_ in arcs if v==i)
+    if i==1: prob += out - inp == 1
+    elif i==6: prob += out - inp == -1
+    else: prob += out - inp == 0
+
+prob.solve()
+print(f'LP costo óptimo: {value(prob.objective):.0f}')
+print('Arcos activos:')
+for (u,v), var in x.items():
+    if var.varValue and var.varValue > 0.5:
+        print(f'  {u} → {v}')
+print(f'\nCoincide con Dijkstra: costo = {dist[6]}')
+```
+
+# Problema del Agente Viajero {background-color="#0f3460"}
+
+## Definición del TSP
+
+::: {.columns}
+::: {.column width="55%"}
+
+Dado un grafo completo con $n$ nodos y costos $c_{ij}$:
+
+**Encontrar** un circuito hamiltoniano de **costo mínimo** (visita cada nodo exactamente una vez) [@applegate2006].
+
+::: {.fragment}
+**Tours posibles:**
+
+- Simétrico: $(n-1)!/2$
+- 5 ciudades: $12$ tours
+- 20 ciudades: $\approx 6 \times 10^{16}$
+
+Primer abordaje computacional: @dantzig1954 (49 ciudades).
+:::
+
+:::
+::: {.column width="45%"}
+
+```{python}
+#| echo: false
+#| fig-align: center
+import numpy as np
+
+cities = {'A':(0,2), 'B':(2,3), 'C':(4,2), 'D':(3.5,0), 'E':(0.5,0)}
+tour = ['A','B','C','D','E','A']
+
+fig, ax = plt.subplots(figsize=(5, 4.5))
+fig.set_facecolor('#1a1a2e')
+ax.set_facecolor('#1a1a2e')
+ax.axis('off')
+ax.set_xlim(-0.8, 5.2)
+ax.set_ylim(-0.8, 3.8)
+
+dist_m = {'A':{'B':10,'C':15,'D':20,'E':6},
+           'B':{'C':8,'D':18,'E':12},
+           'C':{'D':7,'E':14}, 'D':{'E':12}}
+
+for i, c1 in enumerate(list(cities.keys())):
+    for c2 in list(cities.keys())[i+1:]:
+        x0,y0 = cities[c1]; x1,y1 = cities[c2]
+        ax.plot([x0,x1],[y0,y1], color='#333', lw=0.5, alpha=0.4)
+
+for i in range(len(tour)-1):
+    x0,y0 = cities[tour[i]]; x1,y1 = cities[tour[i+1]]
+    ax.plot([x0,x1],[y0,y1], color='#e94560', lw=3, zorder=3)
+
+costs = [10,8,7,12,6]
+for i in range(len(tour)-1):
+    x0,y0 = cities[tour[i]]; x1,y1 = cities[tour[i+1]]
+    mx,my = (x0+x1)/2, (y0+y1)/2
+    ax.text(mx, my, str(costs[i]), ha='center', va='center',
+            fontsize=9, color='#ffb74d', fontweight='bold',
+            bbox=dict(facecolor='#1a1a2e', edgecolor='#333',
+                      boxstyle='round,pad=0.15', alpha=0.9))
+
+for name, (x,y) in cities.items():
+    circle = plt.Circle((x,y), 0.25, facecolor='#0f3460',
+                        edgecolor='#4fc3f7', linewidth=2, zorder=5)
+    ax.add_patch(circle)
+    ax.text(x, y, name, ha='center', va='center', fontsize=13,
+            color='white', fontweight='bold', zorder=6)
+
+ax.text(2.2, -0.6, 'Tour: A→B→C→D→E→A  (costo = 43)',
+        ha='center', fontsize=10, color='#e94560', fontweight='bold')
+plt.tight_layout()
+plt.show()
+```
+
+:::
+:::
+
+## Formulación MTZ [@miller1960]
+
+$$\min \sum_{i=1}^{n}\sum_{\substack{j=1\\j\neq i}}^{n} c_{ij}\,x_{ij}$$
+
+::: {.fragment}
+**Restricciones de grado** (salir/entrar exactamente una vez):
+$$\sum_{\substack{j=1\\j\neq i}}^{n} x_{ij} = 1 \;\forall\,i \qquad \sum_{\substack{i=1\\i\neq j}}^{n} x_{ij} = 1 \;\forall\,j$$
+:::
+
+::: {.fragment}
+**Eliminación de subtours (MTZ):**
+$$u_i - u_j + n\,x_{ij} \leq n-1 \quad \forall\,i,j = 2,\ldots,n,\; i \neq j$$
+:::
+
+::: {.fragment}
+**Variables:** $x_{ij} \in \{0,1\}$, $\;1 \leq u_i \leq n-1$ — Requiere ILP [@wolsey1998]
+:::
+
+## SPP vs TSP — Diferencia clave
+
+::: {.columns}
+::: {.column width="50%"}
+
+### SPP (Ruta Más Corta)
+
+- Variables **continuas** $x_{ij} \geq 0$
+- Matriz **totalmente unimodular**
+- Integralidad **automática**
+- Clase **P**
+
+::: {.callout-tip icon=false}
+## Consecuencia
+Se resuelve como LP estándar, sin necesidad de branch-and-bound.
+:::
+
+:::
+::: {.column width="50%"}
+
+### TSP (Agente Viajero)
+
+- Variables **binarias** $x_{ij} \in \{0,1\}$
+- Matriz **NO unimodular**
+- Requiere **eliminación de subtours**
+- Clase **NP-difícil** [@papadimitriou1998]
+
+::: {.callout-warning icon=false}
+## Consecuencia
+Requiere ILP con métodos exponenciales [@held1962] o heurísticas [@laporte1992].
+:::
+
+:::
+:::
+
+# Implementación TSP {background-color="#0f3460"}
+
+## Solución exacta — MTZ con PuLP
+
+```{python}
+#| code-fold: false
+#| code-line-numbers: "|1-4|6-11|13-18"
+from pulp import LpMaximize, LpBinary, LpStatus
+
+dm = np.array([[0,10,15,20,6],[10,0,8,18,12],
+               [15,8,0,7,14],[20,18,7,0,12],[6,12,14,12,0]])
+cities_l = ['A','B','C','D','E']; nc = 5
+
+prob = LpProblem('TSP', LpMinimize)
+xv = {(i,j): LpVariable(f't_{i}_{j}', cat=LpBinary)
+      for i in range(nc) for j in range(nc) if i!=j}
+uv = {i: LpVariable(f'u_{i}', 1, nc-1) for i in range(1,nc)}
+
+prob += lpSum(dm[i][j]*xv[i,j] for i in range(nc) for j in range(nc) if i!=j)
+for i in range(nc):
+    prob += lpSum(xv[i,j] for j in range(nc) if j!=i) == 1
+    prob += lpSum(xv[j,i] for j in range(nc) if j!=i) == 1
+for i in range(1,nc):
+    for j in range(1,nc):
+        if i!=j: prob += uv[i]-uv[j]+nc*xv[i,j] <= nc-1
+
+prob.solve()
+```
+
+## Resultado TSP
+
+```{python}
+#| code-fold: true
+tour_r = [0]; cur = 0
+for _ in range(nc-1):
+    for j in range(nc):
+        if j!=cur and (cur,j) in xv and xv[cur,j].varValue > 0.5:
+            tour_r.append(j); cur = j; break
+tour_r.append(0)
+
+cost = value(prob.objective)
+names = [cities_l[i] for i in tour_r]
+print(f'Tour óptimo: {" → ".join(names)}')
+print(f'Costo: {int(cost)}')
+```
+
+::: {.fragment}
+
+**Verificación por enumeración exhaustiva:**
+
+```{python}
+#| code-fold: true
+import itertools
+
+def tour_cost(t, d):
+    return sum(d[t[i]][t[i+1]] for i in range(len(t)-1))
+
+all_t = [[0]+list(p)+[0] for p in itertools.permutations(range(1,nc))]
+costs = sorted([(tour_cost(t,dm), t) for t in all_t])
+
+print(f'Total tours: {len(all_t)} ({len(all_t)//2} únicos)')
+print(f'Óptimo confirmado: costo = {costs[0][0]}')
+print(f'Peor tour: costo = {costs[-1][0]}')
+```
+
+:::
+
+## TSP paso a paso — Vecino más cercano {.smaller}
+
+```{python}
+#| echo: false
+#| fig-align: center
+
+cities_pos = {'A':(0,2), 'B':(2,3), 'C':(4,2), 'D':(3.5,0), 'E':(0.5,0)}
+dm_full = {'A':{'B':10,'C':15,'D':20,'E':6}, 'B':{'A':10,'C':8,'D':18,'E':12},
+           'C':{'A':15,'B':8,'D':7,'E':14}, 'D':{'A':20,'B':18,'C':7,'E':12},
+           'E':{'A':6,'B':12,'C':14,'D':12}}
+city_names = ['A','B','C','D','E']
+
+def draw_tsp_step(ax, partial_tour, current, unvisited, step_num, desc, cost_so_far):
+    ax.set_facecolor('#1a1a2e')
+    ax.axis('off')
+    ax.set_xlim(-1, 5.2)
+    ax.set_ylim(-1, 3.8)
+    for i, c1 in enumerate(city_names):
+        for c2 in city_names[i+1:]:
+            x0,y0 = cities_pos[c1]; x1,y1 = cities_pos[c2]
+            ax.plot([x0,x1],[y0,y1], color='#333', lw=0.4, alpha=0.3)
+    for i in range(len(partial_tour)-1):
+        x0,y0 = cities_pos[partial_tour[i]]
+        x1,y1 = cities_pos[partial_tour[i+1]]
+        ax.plot([x0,x1],[y0,y1], color='#e94560', lw=2.5, zorder=3)
+        mx,my = (x0+x1)/2, (y0+y1)/2
+        d = dm_full[partial_tour[i]][partial_tour[i+1]]
+        ax.text(mx, my, str(d), ha='center', va='center', fontsize=8,
+                color='#ffb74d', fontweight='bold',
+                bbox=dict(facecolor='#1a1a2e', edgecolor='#333', boxstyle='round,pad=0.1', alpha=0.9))
+    for name, (x,y) in cities_pos.items():
+        if name == current:
+            fc, ec = '#e94560', '#fff'
+        elif name not in unvisited:
+            fc, ec = '#2e7d32', '#81c784'
+        else:
+            fc, ec = '#16213e', '#4fc3f7'
+        circle = plt.Circle((x,y), 0.22, facecolor=fc, edgecolor=ec, linewidth=2, zorder=5)
+        ax.add_patch(circle)
+        ax.text(x, y, name, ha='center', va='center', fontsize=11, color='white', fontweight='bold', zorder=6)
+    ax.set_title(f'Paso {step_num}: {desc}\nCosto acum: {cost_so_far}', fontsize=9, color='white', pad=5)
+
+fig, axes = plt.subplots(1, 4, figsize=(13, 3.5))
+fig.set_facecolor('#1a1a2e')
+
+# NN desde A: A→E(6)→B(12)→C(8)→D(7)→A(20) = 53
+draw_tsp_step(axes[0], ['A'], 'A', {'B','C','D','E'}, 1,
+              'Inicio en A\nMás cercano: E (d=6)', 0)
+
+draw_tsp_step(axes[1], ['A','E'], 'E', {'B','C','D'}, 2,
+              'Ir a E (costo 6)\nMás cercano: B (d=12)', 6)
+
+draw_tsp_step(axes[2], ['A','E','B'], 'B', {'C','D'}, 3,
+              'Ir a B (costo 12)\nMás cercano: C (d=8)', 18)
+
+draw_tsp_step(axes[3], ['A','E','B','C','D','A'], None, set(), 5,
+              'C→D(7), D→A(20)\nTour completo', 53)
+
+plt.suptitle('Heurística Vecino Más Cercano: A→E→B→C→D→A = 53', fontsize=12, color='#ffb74d', y=0.02)
+plt.tight_layout()
+plt.subplots_adjust(bottom=0.1)
+plt.show()
+```
+
+## TSP paso a paso — Mejora 2-opt {.smaller}
+
+```{python}
+#| echo: false
+#| fig-align: center
+
+fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+fig.set_facecolor('#1a1a2e')
+
+def draw_tsp_tour_compare(ax, tour_seq, title, total, color_line='#e94560'):
+    ax.set_facecolor('#1a1a2e')
+    ax.axis('off')
+    ax.set_xlim(-1, 5.2)
+    ax.set_ylim(-1, 3.8)
+    for i, c1 in enumerate(city_names):
+        for c2 in city_names[i+1:]:
+            x0,y0 = cities_pos[c1]; x1,y1 = cities_pos[c2]
+            ax.plot([x0,x1],[y0,y1], color='#333', lw=0.3, alpha=0.3)
+    for i in range(len(tour_seq)-1):
+        x0,y0 = cities_pos[tour_seq[i]]
+        x1,y1 = cities_pos[tour_seq[i+1]]
+        ax.plot([x0,x1],[y0,y1], color=color_line, lw=2.5, zorder=3)
+        mx,my = (x0+x1)/2, (y0+y1)/2
+        d = dm_full[tour_seq[i]][tour_seq[i+1]]
+        ax.text(mx, my, str(d), ha='center', va='center', fontsize=8,
+                color='#ffb74d', fontweight='bold',
+                bbox=dict(facecolor='#1a1a2e', edgecolor='#333', boxstyle='round,pad=0.1', alpha=0.9))
+    for name, (x,y) in cities_pos.items():
+        circle = plt.Circle((x,y), 0.22, facecolor='#0f3460', edgecolor='#4fc3f7', linewidth=2, zorder=5)
+        ax.add_patch(circle)
+        ax.text(x, y, name, ha='center', va='center', fontsize=11, color='white', fontweight='bold', zorder=6)
+    ax.set_title(f'{title}\nCosto = {total}', fontsize=10, color='white', pad=8)
+
+# NN: A→E→B→C→D→A = 53
+draw_tsp_tour_compare(axes[0], ['A','E','B','C','D','A'],
+                      'Vecino más cercano', 53, '#f39c12')
+
+# 2-opt swap: reverse segment D→C→B→E → E→B→C→D → A→E→D→C→B→A = 43
+draw_tsp_tour_compare(axes[1], ['A','E','D','C','B','A'],
+                      '2-opt: invertir (B,C,D)', 43, '#4fc3f7')
+
+# Óptimo: A→B→C→D→E→A = 43
+draw_tsp_tour_compare(axes[2], ['A','B','C','D','E','A'],
+                      'Óptimo exacto (MTZ)', 43, '#e94560')
+
+plt.suptitle('2-opt mejora de 53 → 43 (gap 0%) — coincide con el óptimo', fontsize=12, color='#81c784', y=0.02)
+plt.tight_layout()
+plt.subplots_adjust(bottom=0.1)
+plt.show()
+```
+
+## Heurísticas: Vecino más cercano + 2-opt [@croes1958]
+
+```{python}
+#| code-fold: true
+def nn_tsp(dm, start=0):
+    n = len(dm); vis = {start}; tour = [start]; cur = start; cost = 0
+    while len(vis) < n:
+        best = min((j for j in range(n) if j not in vis), key=lambda j: dm[cur][j])
+        cost += dm[cur][best]; vis.add(best); tour.append(best); cur = best
+    cost += dm[cur][start]; tour.append(start)
+    return tour, cost
+
+def two_opt(tour, dm):
+    n = len(tour)-1; improved = True; best = list(tour)
+    while improved:
+        improved = False
+        for i in range(1, n-1):
+            for j in range(i+1, n):
+                new = best[:i]+best[i:j+1][::-1]+best[j+1:]
+                if tour_cost(new, dm) < tour_cost(best, dm):
+                    best = new; improved = True
+    return best, tour_cost(best, dm)
+
+t_nn, c_nn = nn_tsp(dm)
+t_2opt, c_2opt = two_opt(t_nn, dm)
+
+print(f'Vecino más cercano: {" → ".join(cities_l[i] for i in t_nn)} = {c_nn}')
+print(f'Después de 2-opt:   {" → ".join(cities_l[i] for i in t_2opt)} = {c_2opt}')
+print(f'Óptimo exacto:      {int(cost)}')
+print(f'Gap NN: {(c_nn-cost)/cost*100:.1f}%  |  Gap 2-opt: {(c_2opt-cost)/cost*100:.1f}%')
+```
+
+## Escalabilidad: Dijkstra vs MTZ
+
+```{python}
+#| code-fold: true
+#| fig-align: center
+import time
+
+sizes_spp = [10, 50, 100, 500, 1000]
+times_spp = []
+for n_s in sizes_spp:
+    adj = {i:[] for i in range(n_s)}
+    rng = np.random.default_rng(42)
+    for i in range(n_s-1):
+        adj[i].append((i+1, int(rng.integers(1,20))))
+    for i in range(n_s):
+        for j in range(n_s):
+            if i!=j and j!=i+1 and rng.random()<0.1:
+                adj[i].append((j, int(rng.integers(1,20))))
+    t0 = time.perf_counter()
+    dijkstra(adj, 0)
+    times_spp.append(time.perf_counter()-t0)
+
+from pulp import PULP_CBC_CMD
+sizes_tsp = [5, 8, 10]
+times_tsp = []
+for n_t in sizes_tsp:
+    coords = np.random.default_rng(42).random((n_t,2))*100
+    d = np.zeros((n_t,n_t))
+    for i in range(n_t):
+        for j in range(n_t):
+            d[i][j] = np.sqrt((coords[i][0]-coords[j][0])**2+(coords[i][1]-coords[j][1])**2)
+    t0 = time.perf_counter()
+    p = LpProblem(f'T{n_t}', LpMinimize)
+    xv2 = {(i,j):LpVariable(f'z{n_t}_{i}_{j}',cat=LpBinary) for i in range(n_t) for j in range(n_t) if i!=j}
+    uv2 = {i:LpVariable(f'w{n_t}_{i}',1,n_t-1) for i in range(1,n_t)}
+    p += lpSum(d[i][j]*xv2[i,j] for i in range(n_t) for j in range(n_t) if i!=j)
+    for i in range(n_t):
+        p += lpSum(xv2[i,j] for j in range(n_t) if j!=i)==1
+        p += lpSum(xv2[j,i] for j in range(n_t) if j!=i)==1
+    for i in range(1,n_t):
+        for j in range(1,n_t):
+            if i!=j: p += uv2[i]-uv2[j]+n_t*xv2[i,j]<=n_t-1
+    p.solve(PULP_CBC_CMD(msg=0))
+    times_tsp.append(time.perf_counter()-t0)
+
+fig, ax = plt.subplots(figsize=(10, 4.5))
+fig.set_facecolor('#1a1a2e')
+ax.set_facecolor('#1a1a2e')
+
+ax.semilogy(sizes_spp, [t*1000 for t in times_spp], 'o-',
+            color='#4fc3f7', lw=2, markersize=8, label='Dijkstra (SPP)')
+ax.semilogy(sizes_tsp, [t*1000 for t in times_tsp], 's-',
+            color='#e94560', lw=2, markersize=8, label='MTZ exacto (TSP)')
+
+ax.set_xlabel('Nodos / Ciudades', color='white', fontsize=11)
+ax.set_ylabel('Tiempo (ms)', color='white', fontsize=11)
+ax.tick_params(colors='white')
+for sp in ax.spines.values(): sp.set_color('#333')
+ax.grid(alpha=0.15, color='white')
+ax.legend(fontsize=10)
+plt.tight_layout()
+plt.show()
+```
+
+# Comparación final {background-color="#0f3460"}
+
+## SPP vs TSP — Resumen
+
+```{python}
+#| echo: false
+#| fig-align: center
+fig, ax = plt.subplots(figsize=(12, 4.5))
+fig.set_facecolor('#1a1a2e')
+ax.set_facecolor('#1a1a2e')
+ax.axis('off')
+
+rows = [
+    ['Aspecto',        'SPP (Ruta Más Corta)',   'TSP (Agente Viajero)'],
+    ['Objetivo',       'Camino s→t mínimo',      'Circuito hamiltoniano mín.'],
+    ['Formulación',    'LP (continuo)',           'ILP (binario)'],
+    ['Integralidad',   'Automática (unimod.)',    'Variables binarias'],
+    ['Complejidad',    'P: O((V+E) log V)',       'NP-difícil: O(n²·2ⁿ)'],
+    ['Algoritmo',      'Dijkstra, Bellman-Ford',  'Branch-and-Cut, heurísticas'],
+    ['Escalabilidad',  'Millones de nodos',       'Miles de nodos'],
+]
+
+colors_t = []
+for i, row in enumerate(rows):
+    if i == 0:
+        colors_t.append(['#0f3460']*3)
+    else:
+        bg = '#1e2a45' if i%2==0 else '#1a1a2e'
+        colors_t.append([bg]*3)
+
+table = ax.table(cellText=rows, cellColours=colors_t, loc='center', cellLoc='center')
+table.auto_set_font_size(False)
+table.set_fontsize(11)
+table.scale(1, 1.8)
+
+for (r,c), cell in table.get_celld().items():
+    cell.set_edgecolor('#333')
+    if r == 0:
+        cell.set_text_props(color='#4fc3f7', fontweight='bold', fontsize=12)
+    elif c == 0:
+        cell.set_text_props(color='#ffb74d', fontweight='bold')
+    elif c == 1:
+        cell.set_text_props(color='#81c784')
+    else:
+        cell.set_text_props(color='#e94560')
+
+plt.tight_layout()
+plt.show()
+```
+
+## Conclusiones
+
+::: {.columns}
+::: {.column width="50%"}
+
+### Hallazgos principales
+
+::: {.incremental}
+- **SPP:** resoluble en tiempo polinomial [@dijkstra1959], formulación LP con integralidad natural [@ahuja1993]
+- **TSP:** NP-difícil [@papadimitriou1998], requiere ILP con eliminación de subtours [@miller1960]
+- La **estructura combinatoria** determina la tratabilidad [@schrijver2003]
+- Dijkstra: millones de nodos en ms; TSP exacto: impracticable $> 20$ nodos
+:::
+
+:::
+::: {.column width="50%"}
+
+### Implicaciones prácticas
+
+::: {.incremental}
+- Para **rutas punto a punto**: algoritmos exactos eficientes (Dijkstra)
+- Para **rutas hamiltonianas**: heurísticas + métodos exactos limitados
+- 2-opt [@croes1958] logra gaps $< 10\%$ en la mayoría de instancias
+- Estado del arte (Concorde) [@applegate2006]: resuelve TSP hasta $\sim 85{.}000$ ciudades
+:::
+
+:::
+:::
+
+## {background-color="#1a1a2e"}
+
+::: {.r-fit-text}
+**Gracias**
+:::
+
+::: {style="text-align: center; font-size: 0.8em; color: #aaa; margin-top: 1em;"}
+Optimización Combinatoria: SPP y TSP — Parte II
+
+Tópicos Especiales 1 · Doctorado en Informática
+
+Escuela Politécnica Nacional · 2026
+:::
+
+## Referencias
+
+::: {#refs}
+:::

@@ -1,0 +1,50 @@
+---
+title: "Modelos de Optimización"
+subtitle: "Tópicos Especiales 1 · Doctorado en Informática"
+listing:
+  - id: reportes
+    contents:
+      - parte1.qmd
+      - parte2.qmd
+    type: default
+    sort: false
+    categories: true
+    fields: [image, title, subtitle, description, categories]
+  - id: presentaciones
+    contents:
+      - presentacion_parte1.qmd
+      - presentacion_parte2.qmd
+    type: default
+    sort: false
+    categories: true
+    fields: [image, title, subtitle, description, categories]
+  - id: notebooks
+    contents:
+      - parte1_implementacion.ipynb
+      - simulaciones_parte2.ipynb
+    type: default
+    sort: false
+    categories: true
+    fields: [image, title, subtitle, description, categories]
+---
+
+## Reportes
+
+Formulación matemática, análisis teórico y resultados de cada parte del trabajo.
+
+::: {#reportes}
+:::
+
+## Presentaciones
+
+Diapositivas interactivas (reveal.js) con código ejecutable y visualizaciones.
+
+::: {#presentaciones}
+:::
+
+## Implementaciones
+
+Notebooks con implementación computacional completa, visualizaciones y análisis de escalabilidad.
+
+::: {#notebooks}
+:::
