@@ -94,8 +94,22 @@ div.csl-indent {
   }
 }</script>
 
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
 
 <script type="text/javascript">
 const typesetMath = (el) => {
@@ -281,10 +295,10 @@ window.Quarto = {
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Dado un grafo dirigido <span class="math inline">\(G = (V, A)\)</span> con costos <span class="math inline">\(c_{ij} \geq 0\)</span> en cada arco <span class="math inline">\((i,j) \in A\)</span>, un nodo origen <span class="math inline">\(s\)</span> y un nodo destino <span class="math inline">\(t\)</span>, el problema consiste en encontrar un camino dirigido de <span class="math inline">\(s\)</span> a <span class="math inline">\(t\)</span> de costo total mínimo <span class="citation" data-cites="ahuja1993 bazaraa2010">(<a href="#ref-ahuja1993" role="doc-biblioref">Ahuja et al. 1993</a>; <a href="#ref-bazaraa2010" role="doc-biblioref">Bazaraa et al. 2010</a>)</span>.</p>
+<p>Dado un grafo dirigido <span class="math inline">G = (V, A)</span> con costos <span class="math inline">c_{ij} \geq 0</span> en cada arco <span class="math inline">(i,j) \in A</span>, un nodo origen <span class="math inline">s</span> y un nodo destino <span class="math inline">t</span>, el problema consiste en encontrar un camino dirigido de <span class="math inline">s</span> a <span class="math inline">t</span> de costo total mínimo <span class="citation" data-cites="ahuja1993 bazaraa2010">(<a href="#ref-ahuja1993" role="doc-biblioref">Ahuja et al. 1993</a>; <a href="#ref-bazaraa2010" role="doc-biblioref">Bazaraa et al. 2010</a>)</span>.</p>
 </div>
 </div>
-<p>Un <strong>camino dirigido</strong> de <span class="math inline">\(s\)</span> a <span class="math inline">\(t\)</span> es una secuencia <span class="math inline">\(s = v_0, v_1, \ldots, v_k = t\)</span> con <span class="math inline">\((v_{i-1}, v_i) \in A\)</span>. Su costo es <span class="math inline">\(\sum_{i=1}^{k} c_{v_{i-1}, v_i}\)</span>.</p>
+<p>Un <strong>camino dirigido</strong> de <span class="math inline">s</span> a <span class="math inline">t</span> es una secuencia <span class="math inline">s = v_0, v_1, \ldots, v_k = t</span> con <span class="math inline">(v_{i-1}, v_i) \in A</span>. Su costo es <span class="math inline">\sum_{i=1}^{k} c_{v_{i-1}, v_i}</span>.</p>
 <p>Se utiliza un grafo dirigido ponderado de 6 nodos como ejemplo:</p>
 <table class="table-striped table-hover caption-top table">
 <caption>Arcos y costos del grafo de ejemplo.</caption>
@@ -303,15 +317,15 @@ window.Quarto = {
 <thead>
 <tr class="header">
 <th style="text-align: center;">Arco</th>
-<th style="text-align: center;"><span class="math inline">\((1,2)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\((1,4)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\((1,5)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\((2,3)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\((2,5)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\((3,6)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\((4,2)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\((4,5)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\((5,6)\)</span></th>
+<th style="text-align: center;"><span class="math inline">(1,2)</span></th>
+<th style="text-align: center;"><span class="math inline">(1,4)</span></th>
+<th style="text-align: center;"><span class="math inline">(1,5)</span></th>
+<th style="text-align: center;"><span class="math inline">(2,3)</span></th>
+<th style="text-align: center;"><span class="math inline">(2,5)</span></th>
+<th style="text-align: center;"><span class="math inline">(3,6)</span></th>
+<th style="text-align: center;"><span class="math inline">(4,2)</span></th>
+<th style="text-align: center;"><span class="math inline">(4,5)</span></th>
+<th style="text-align: center;"><span class="math inline">(5,6)</span></th>
 </tr>
 </thead>
 <tbody>
@@ -332,17 +346,17 @@ window.Quarto = {
 </section>
 <section id="formulación-matemática-como-programa-lineal" class="level3">
 <h3 class="anchored" data-anchor-id="formulación-matemática-como-programa-lineal">Formulación matemática como programa lineal</h3>
-<p>La formulación como programa lineal de flujo en redes se basa en variables de flujo <span class="citation" data-cites="bertsimas1997 bazaraa2010">(<a href="#ref-bertsimas1997" role="doc-biblioref">Bertsimas and Tsitsiklis 1997</a>; <a href="#ref-bazaraa2010" role="doc-biblioref">Bazaraa et al. 2010</a>)</span>. Se define <span class="math inline">\(x_{ij} \geq 0\)</span> para cada arco <span class="math inline">\((i,j) \in A\)</span>:</p>
-<p><span class="math display">\[
+<p>La formulación como programa lineal de flujo en redes se basa en variables de flujo <span class="citation" data-cites="bertsimas1997 bazaraa2010">(<a href="#ref-bertsimas1997" role="doc-biblioref">Bertsimas and Tsitsiklis 1997</a>; <a href="#ref-bazaraa2010" role="doc-biblioref">Bazaraa et al. 2010</a>)</span>. Se define <span class="math inline">x_{ij} \geq 0</span> para cada arco <span class="math inline">(i,j) \in A</span>:</p>
+<p><span class="math display">
 \min \sum_{(i,j) \in A} c_{ij}\, x_{ij}
-\]</span></p>
+</span></p>
 <p>sujeto a:</p>
-<p><span class="math display">\[
+<p><span class="math display">
 \sum_{j:(i,j)\in A} x_{ij} - \sum_{j:(j,i)\in A} x_{ji} = \begin{cases} 1 &amp; \text{si } i = s \\ -1 &amp; \text{si } i = t \\ 0 &amp; \text{en otro caso} \end{cases} \quad \forall\, i \in V
-\]</span></p>
-<p><span class="math display">\[
+</span></p>
+<p><span class="math display">
 x_{ij} \geq 0, \quad \forall\,(i,j) \in A
-\]</span></p>
+</span></p>
 <div class="callout callout-style-default callout-tip no-icon callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -353,25 +367,25 @@ x_{ij} \geq 0, \quad \forall\,(i,j) \in A
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>La matriz de restricciones de conservación de flujo es la <strong>matriz de incidencia</strong> del grafo dirigido, que es <strong>totalmente unimodular</strong> <span class="citation" data-cites="ahuja1993">(<a href="#ref-ahuja1993" role="doc-biblioref">Ahuja et al. 1993</a>)</span>. Por lo tanto, la relajación LP produce soluciones enteras y <strong>no es necesario</strong> imponer <span class="math inline">\(x_{ij} \in \{0,1\}\)</span>.</p>
+<p>La matriz de restricciones de conservación de flujo es la <strong>matriz de incidencia</strong> del grafo dirigido, que es <strong>totalmente unimodular</strong> <span class="citation" data-cites="ahuja1993">(<a href="#ref-ahuja1993" role="doc-biblioref">Ahuja et al. 1993</a>)</span>. Por lo tanto, la relajación LP produce soluciones enteras y <strong>no es necesario</strong> imponer <span class="math inline">x_{ij} \in \{0,1\}</span>.</p>
 </div>
 </div>
 </section>
 <section id="algoritmo-de-dijkstra-y-complejidad" class="level3">
 <h3 class="anchored" data-anchor-id="algoritmo-de-dijkstra-y-complejidad">Algoritmo de Dijkstra y complejidad</h3>
-<p>El algoritmo de Dijkstra <span class="citation" data-cites="dijkstra1959">(<a href="#ref-dijkstra1959" role="doc-biblioref">Dijkstra 1959</a>)</span> resuelve el SPP desde un origen <span class="math inline">\(s\)</span> asumiendo <span class="math inline">\(c_{ij} \geq 0\)</span>. Su funcionamiento:</p>
+<p>El algoritmo de Dijkstra <span class="citation" data-cites="dijkstra1959">(<a href="#ref-dijkstra1959" role="doc-biblioref">Dijkstra 1959</a>)</span> resuelve el SPP desde un origen <span class="math inline">s</span> asumiendo <span class="math inline">c_{ij} \geq 0</span>. Su funcionamiento:</p>
 <ol type="1">
-<li>Inicializar <span class="math inline">\(d[s] = 0\)</span> y <span class="math inline">\(d[v] = \infty\)</span> para todo <span class="math inline">\(v \neq s\)</span>.</li>
-<li>Extraer de la cola de prioridad el nodo <span class="math inline">\(u\)</span> con menor <span class="math inline">\(d[u]\)</span>.</li>
-<li>Para cada vecino <span class="math inline">\(v\)</span> de <span class="math inline">\(u\)</span>: si <span class="math inline">\(d[u] + c_{uv} &lt; d[v]\)</span>, actualizar <span class="math inline">\(d[v]\)</span> y <span class="math inline">\(\pi[v] = u\)</span>.</li>
+<li>Inicializar <span class="math inline">d[s] = 0</span> y <span class="math inline">d[v] = \infty</span> para todo <span class="math inline">v \neq s</span>.</li>
+<li>Extraer de la cola de prioridad el nodo <span class="math inline">u</span> con menor <span class="math inline">d[u]</span>.</li>
+<li>Para cada vecino <span class="math inline">v</span> de <span class="math inline">u</span>: si <span class="math inline">d[u] + c_{uv} &lt; d[v]</span>, actualizar <span class="math inline">d[v]</span> y <span class="math inline">\pi[v] = u</span>.</li>
 <li>Repetir hasta vaciar la cola.</li>
 </ol>
-<p><strong>Complejidad:</strong> <span class="math inline">\(O(|V|^2)\)</span> con arreglo lineal; <span class="math inline">\(O((|V|+|E|)\log|V|)\)</span> con montículo binario; <span class="math inline">\(O(|V|\log|V| + |E|)\)</span> con montículo de Fibonacci <span class="citation" data-cites="fredman1987">(<a href="#ref-fredman1987" role="doc-biblioref">Fredman and Tarjan 1987</a>)</span>. El SPP pertenece a la clase <strong>P</strong> <span class="citation" data-cites="cormen2009">(<a href="#ref-cormen2009" role="doc-biblioref">Cormen et al. 2009</a>)</span>.</p>
-<p>Para grafos con pesos negativos (sin ciclos negativos), el algoritmo de Bellman-Ford <span class="citation" data-cites="bellman1958">(<a href="#ref-bellman1958" role="doc-biblioref">Bellman 1958</a>)</span> resuelve en <span class="math inline">\(O(|V| \cdot |E|)\)</span>.</p>
+<p><strong>Complejidad:</strong> <span class="math inline">O(|V|^2)</span> con arreglo lineal; <span class="math inline">O((|V|+|E|)\log|V|)</span> con montículo binario; <span class="math inline">O(|V|\log|V| + |E|)</span> con montículo de Fibonacci <span class="citation" data-cites="fredman1987">(<a href="#ref-fredman1987" role="doc-biblioref">Fredman and Tarjan 1987</a>)</span>. El SPP pertenece a la clase <strong>P</strong> <span class="citation" data-cites="cormen2009">(<a href="#ref-cormen2009" role="doc-biblioref">Cormen et al. 2009</a>)</span>.</p>
+<p>Para grafos con pesos negativos (sin ciclos negativos), el algoritmo de Bellman-Ford <span class="citation" data-cites="bellman1958">(<a href="#ref-bellman1958" role="doc-biblioref">Bellman 1958</a>)</span> resuelve en <span class="math inline">O(|V| \cdot |E|)</span>.</p>
 </section>
 <section id="ejemplo-numérico-resuelto" class="level3">
 <h3 class="anchored" data-anchor-id="ejemplo-numérico-resuelto">Ejemplo numérico resuelto</h3>
-<p>Aplicando Dijkstra desde <span class="math inline">\(s = 1\)</span> en el grafo de ejemplo:</p>
+<p>Aplicando Dijkstra desde <span class="math inline">s = 1</span> en el grafo de ejemplo:</p>
 <table class="table-striped table-hover caption-top table">
 <caption>Ejecución paso a paso de Dijkstra.</caption>
 <thead>
@@ -384,37 +398,37 @@ x_{ij} \geq 0, \quad \forall\,(i,j) \in A
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">1</td>
-<td style="text-align: center;">Nodo 1 (<span class="math inline">\(d=0\)</span>)</td>
-<td style="text-align: left;"><span class="math inline">\(d[2]=7\)</span>, <span class="math inline">\(d[4]=9\)</span>, <span class="math inline">\(d[5]=14\)</span></td>
+<td style="text-align: center;">Nodo 1 (<span class="math inline">d=0</span>)</td>
+<td style="text-align: left;"><span class="math inline">d[2]=7</span>, <span class="math inline">d[4]=9</span>, <span class="math inline">d[5]=14</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">Nodo 2 (<span class="math inline">\(d=7\)</span>)</td>
-<td style="text-align: left;"><span class="math inline">\(d[3]=17\)</span></td>
+<td style="text-align: center;">Nodo 2 (<span class="math inline">d=7</span>)</td>
+<td style="text-align: left;"><span class="math inline">d[3]=17</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">Nodo 4 (<span class="math inline">\(d=9\)</span>)</td>
-<td style="text-align: left;"><span class="math inline">\(d[5]=\min(14,11)=11\)</span></td>
+<td style="text-align: center;">Nodo 4 (<span class="math inline">d=9</span>)</td>
+<td style="text-align: left;"><span class="math inline">d[5]=\min(14,11)=11</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">4</td>
-<td style="text-align: center;">Nodo 5 (<span class="math inline">\(d=11\)</span>)</td>
-<td style="text-align: left;"><span class="math inline">\(d[6]=20\)</span></td>
+<td style="text-align: center;">Nodo 5 (<span class="math inline">d=11</span>)</td>
+<td style="text-align: left;"><span class="math inline">d[6]=20</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">5</td>
-<td style="text-align: center;">Nodo 3 (<span class="math inline">\(d=17\)</span>)</td>
-<td style="text-align: left;"><span class="math inline">\(d[6]=\min(20,28)=20\)</span></td>
+<td style="text-align: center;">Nodo 3 (<span class="math inline">d=17</span>)</td>
+<td style="text-align: left;"><span class="math inline">d[6]=\min(20,28)=20</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">6</td>
-<td style="text-align: center;">Nodo 6 (<span class="math inline">\(d=20\)</span>)</td>
+<td style="text-align: center;">Nodo 6 (<span class="math inline">d=20</span>)</td>
 <td style="text-align: left;">Fin</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Resultado:</strong> Ruta óptima <span class="math inline">\(1 \to 4 \to 5 \to 6\)</span>, costo <span class="math inline">\(= 9 + 2 + 9 = 20\)</span>. Verificado mediante LP con PuLP (costo <span class="math inline">\(= 20{,}0\)</span>).</p>
+<p><strong>Resultado:</strong> Ruta óptima <span class="math inline">1 \to 4 \to 5 \to 6</span>, costo <span class="math inline">= 9 + 2 + 9 = 20</span>. Verificado mediante LP con PuLP (costo <span class="math inline">= 20{,}0</span>).</p>
 </section>
 <section id="aplicaciones-en-sistemas-de-información" class="level3">
 <h3 class="anchored" data-anchor-id="aplicaciones-en-sistemas-de-información">Aplicaciones en sistemas de información</h3>
@@ -440,32 +454,32 @@ x_{ij} \geq 0, \quad \forall\,(i,j) \in A
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Dado un grafo completo <span class="math inline">\(G = (V, E)\)</span> con <span class="math inline">\(|V| = n\)</span> y costos <span class="math inline">\(c_{ij} \geq 0\)</span>, el TSP busca un <strong>circuito hamiltoniano</strong> — un ciclo que visita cada nodo exactamente una vez — de costo mínimo.</p>
+<p>Dado un grafo completo <span class="math inline">G = (V, E)</span> con <span class="math inline">|V| = n</span> y costos <span class="math inline">c_{ij} \geq 0</span>, el TSP busca un <strong>circuito hamiltoniano</strong> — un ciclo que visita cada nodo exactamente una vez — de costo mínimo.</p>
 </div>
 </div>
-<p>El número de circuitos posibles es <span class="math inline">\((n-1)!/2\)</span> (simétrico) o <span class="math inline">\((n-1)!\)</span> (asimétrico), crecimiento factorial que impide enumeración exhaustiva para <span class="math inline">\(n\)</span> grande <span class="citation" data-cites="applegate2006">(<a href="#ref-applegate2006" role="doc-biblioref">Applegate et al. 2006</a>)</span>. El primer abordaje computacional significativo del TSP fue realizado por <span class="citation" data-cites="dantzig1954">Dantzig et al. (<a href="#ref-dantzig1954" role="doc-biblioref">1954</a>)</span>, quienes resolvieron una instancia de 49 ciudades mediante planos de corte.</p>
+<p>El número de circuitos posibles es <span class="math inline">(n-1)!/2</span> (simétrico) o <span class="math inline">(n-1)!</span> (asimétrico), crecimiento factorial que impide enumeración exhaustiva para <span class="math inline">n</span> grande <span class="citation" data-cites="applegate2006">(<a href="#ref-applegate2006" role="doc-biblioref">Applegate et al. 2006</a>)</span>. El primer abordaje computacional significativo del TSP fue realizado por <span class="citation" data-cites="dantzig1954">Dantzig et al. (<a href="#ref-dantzig1954" role="doc-biblioref">1954</a>)</span>, quienes resolvieron una instancia de 49 ciudades mediante planos de corte.</p>
 </section>
 <section id="formulación-matemática-mtz" class="level3">
 <h3 class="anchored" data-anchor-id="formulación-matemática-mtz">Formulación matemática (MTZ)</h3>
 <p>Formulación de Miller-Tucker-Zemlin <span class="citation" data-cites="miller1960">(<a href="#ref-miller1960" role="doc-biblioref">Miller et al. 1960</a>)</span>:</p>
-<p><strong>Variables:</strong> <span class="math inline">\(x_{ij} \in \{0,1\}\)</span> (arco en el tour); <span class="math inline">\(u_i \in \mathbb{R}\)</span>, <span class="math inline">\(i = 2,\ldots,n\)</span> (posición).</p>
-<p><span class="math display">\[
+<p><strong>Variables:</strong> <span class="math inline">x_{ij} \in \{0,1\}</span> (arco en el tour); <span class="math inline">u_i \in \mathbb{R}</span>, <span class="math inline">i = 2,\ldots,n</span> (posición).</p>
+<p><span class="math display">
 \min \sum_{i=1}^{n} \sum_{\substack{j=1 \\ j \neq i}}^{n} c_{ij}\,x_{ij}
-\]</span></p>
+</span></p>
 <p><strong>Restricciones de grado:</strong></p>
-<p><span class="math display">\[
+<p><span class="math display">
 \sum_{\substack{j=1 \\ j \neq i}}^{n} x_{ij} = 1 \quad \forall\,i \qquad \sum_{\substack{i=1 \\ i \neq j}}^{n} x_{ij} = 1 \quad \forall\,j
-\]</span></p>
+</span></p>
 <p><strong>Eliminación de subtours (MTZ):</strong></p>
-<p><span class="math display">\[
+<p><span class="math display">
 u_i - u_j + n\,x_{ij} \leq n - 1 \quad \forall\, i,j = 2,\ldots,n,\; i \neq j
-\]</span></p>
-<p><span class="math display">\[
+</span></p>
+<p><span class="math display">
 1 \leq u_i \leq n-1 \quad \forall\, i = 2,\ldots,n
-\]</span></p>
-<p><span class="math display">\[
+</span></p>
+<p><span class="math display">
 x_{ij} \in \{0,1\}
-\]</span></p>
+</span></p>
 <p>Las restricciones de grado aseguran grado uno; las restricciones MTZ eliminan subtours. Las <strong>variables binarias son necesarias</strong>: la matriz no es totalmente unimodular.</p>
 </section>
 <section id="complejidad-computacional" class="level3">
@@ -480,10 +494,10 @@ x_{ij} \in \{0,1\}
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>El TSP es <strong>NP-difícil</strong> <span class="citation" data-cites="papadimitriou1998">(<a href="#ref-papadimitriou1998" role="doc-biblioref">Papadimitriou and Steiglitz 1998</a>)</span>. El algoritmo exacto más eficiente, la programación dinámica de Held-Karp <span class="citation" data-cites="held1962">(<a href="#ref-held1962" role="doc-biblioref">Held and Karp 1962</a>)</span>, tiene complejidad <span class="math inline">\(O(n^2 \cdot 2^n)\)</span>.</p>
+<p>El TSP es <strong>NP-difícil</strong> <span class="citation" data-cites="papadimitriou1998">(<a href="#ref-papadimitriou1998" role="doc-biblioref">Papadimitriou and Steiglitz 1998</a>)</span>. El algoritmo exacto más eficiente, la programación dinámica de Held-Karp <span class="citation" data-cites="held1962">(<a href="#ref-held1962" role="doc-biblioref">Held and Karp 1962</a>)</span>, tiene complejidad <span class="math inline">O(n^2 \cdot 2^n)</span>.</p>
 </div>
 </div>
-<p>Para instancias grandes se utilizan heurísticas: vecino más cercano <span class="math inline">\(O(n^2)\)</span>, mejoras locales 2-opt <span class="citation" data-cites="croes1958">(<a href="#ref-croes1958" role="doc-biblioref">Croes 1958</a>)</span> <span class="math inline">\(O(n^2)\)</span> por iteración, metaheurísticas (genéticos, simulated annealing) <span class="citation" data-cites="laporte1992">(<a href="#ref-laporte1992" role="doc-biblioref">Laporte 1992</a>)</span>. La formulación ILP requiere técnicas de programación entera <span class="citation" data-cites="wolsey1998">(<a href="#ref-wolsey1998" role="doc-biblioref">Wolsey 1998</a>)</span>.</p>
+<p>Para instancias grandes se utilizan heurísticas: vecino más cercano <span class="math inline">O(n^2)</span>, mejoras locales 2-opt <span class="citation" data-cites="croes1958">(<a href="#ref-croes1958" role="doc-biblioref">Croes 1958</a>)</span> <span class="math inline">O(n^2)</span> por iteración, metaheurísticas (genéticos, simulated annealing) <span class="citation" data-cites="laporte1992">(<a href="#ref-laporte1992" role="doc-biblioref">Laporte 1992</a>)</span>. La formulación ILP requiere técnicas de programación entera <span class="citation" data-cites="wolsey1998">(<a href="#ref-wolsey1998" role="doc-biblioref">Wolsey 1998</a>)</span>.</p>
 </section>
 <section id="ejemplo-numérico-resuelto-1" class="level3">
 <h3 class="anchored" data-anchor-id="ejemplo-numérico-resuelto-1">Ejemplo numérico resuelto</h3>
@@ -543,7 +557,7 @@ x_{ij} \in \{0,1\}
 </tr>
 </tbody>
 </table>
-<p><strong>Resultado:</strong> Tour óptimo <span class="math inline">\(A \to B \to C \to D \to E \to A\)</span>, costo <span class="math inline">\(= 10+8+7+12+6 = 43\)</span>. Verificado por enumeración exhaustiva (24 tours) y PuLP.</p>
+<p><strong>Resultado:</strong> Tour óptimo <span class="math inline">A \to B \to C \to D \to E \to A</span>, costo <span class="math inline">= 10+8+7+12+6 = 43</span>. Verificado por enumeración exhaustiva (24 tours) y PuLP.</p>
 </section>
 <section id="aplicaciones-en-sistemas-de-información-1" class="level3">
 <h3 class="anchored" data-anchor-id="aplicaciones-en-sistemas-de-información-1">Aplicaciones en sistemas de información</h3>
@@ -574,7 +588,7 @@ x_{ij} \in \{0,1\}
 <tbody>
 <tr class="odd">
 <td style="text-align: left;"><strong>Objetivo</strong></td>
-<td style="text-align: center;">Camino de costo mínimo <span class="math inline">\(s \to t\)</span></td>
+<td style="text-align: center;">Camino de costo mínimo <span class="math inline">s \to t</span></td>
 <td style="text-align: center;">Circuito hamiltoniano mínimo</td>
 </tr>
 <tr class="even">
@@ -589,8 +603,8 @@ x_{ij} \in \{0,1\}
 </tr>
 <tr class="even">
 <td style="text-align: left;"><strong>Complejidad</strong></td>
-<td style="text-align: center;">P: <span class="math inline">\(O((V+E)\log V)\)</span></td>
-<td style="text-align: center;">NP-difícil: <span class="math inline">\(O(n^2 \cdot 2^n)\)</span></td>
+<td style="text-align: center;">P: <span class="math inline">O((V+E)\log V)</span></td>
+<td style="text-align: center;">NP-difícil: <span class="math inline">O(n^2 \cdot 2^n)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><strong>Algoritmo</strong></td>

@@ -94,8 +94,22 @@ div.csl-indent {
   }
 }</script>
 
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
 
 <script type="text/javascript">
 const typesetMath = (el) => {
@@ -267,13 +281,13 @@ window.Quarto = {
 <section id="definición-del-problema" class="level2">
 <h2 class="anchored" data-anchor-id="definición-del-problema">Definición del problema</h2>
 <p>Una empresa tecnológica desarrolla un chatbot inteligente que recomienda preguntas iniciales al usuario. El sistema dispone de agentes de IA que analizan contenido, generan preguntas candidatas y estiman indicadores de calidad. Se establece que el chatbot no debe presentar más de cuatro preguntas en su interfaz inicial.</p>
-<p>El sistema genera <span class="math inline">\(n = 9\)</span> preguntas candidatas clasificadas en tres categorías:</p>
+<p>El sistema genera <span class="math inline">n = 9</span> preguntas candidatas clasificadas en tres categorías:</p>
 <ul>
-<li><strong>Clarificación (<span class="math inline">\(C\)</span>):</strong> preguntas que precisan información del contenido.</li>
-<li><strong>Preferencias (<span class="math inline">\(P\)</span>):</strong> preguntas que personalizan la exploración según intereses.</li>
-<li><strong>Objetivos (<span class="math inline">\(O\)</span>):</strong> preguntas que profundizan en el conocimiento.</li>
+<li><strong>Clarificación (<span class="math inline">C</span>):</strong> preguntas que precisan información del contenido.</li>
+<li><strong>Preferencias (<span class="math inline">P</span>):</strong> preguntas que personalizan la exploración según intereses.</li>
+<li><strong>Objetivos (<span class="math inline">O</span>):</strong> preguntas que profundizan en el conocimiento.</li>
 </ul>
-<p>Cada pregunta <span class="math inline">\(i\)</span> tiene asociados cuatro parámetros: relevancia <span class="math inline">\(r_i\)</span>, ganancia de información <span class="math inline">\(g_i\)</span>, carga cognitiva <span class="math inline">\(a_i\)</span> y latencia <span class="math inline">\(\ell_i\)</span>.</p>
+<p>Cada pregunta <span class="math inline">i</span> tiene asociados cuatro parámetros: relevancia <span class="math inline">r_i</span>, ganancia de información <span class="math inline">g_i</span>, carga cognitiva <span class="math inline">a_i</span> y latencia <span class="math inline">\ell_i</span>.</p>
 <p><strong>Decisiones:</strong> qué preguntas recomendar al inicio de la conversación.</p>
 <p><strong>Objetivo:</strong> maximizar la utilidad total de las preguntas seleccionadas.</p>
 <p><strong>Restricciones:</strong> máximo de preguntas, presupuesto de carga cognitiva, presupuesto de latencia y cobertura mínima por categoría.</p>
@@ -281,24 +295,24 @@ window.Quarto = {
 <section id="parámetros-del-modelo" class="level2">
 <h2 class="anchored" data-anchor-id="parámetros-del-modelo">Parámetros del modelo</h2>
 <p>La utilidad de cada pregunta se calcula mediante:</p>
-<p><span class="math display">\[
+<p><span class="math display">
 u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
-\]</span></p>
+</span></p>
 <table class="table-striped table-hover caption-top table">
 <caption>Parámetros de las preguntas candidatas (datos sintéticos normalizados).</caption>
 <thead>
 <tr class="header">
 <th style="text-align: center;">Pregunta</th>
 <th style="text-align: center;">Categoría</th>
-<th style="text-align: center;"><span class="math inline">\(r_i\)</span></th>
-<th style="text-align: center;"><span class="math inline">\(g_i\)</span></th>
-<th style="text-align: center;"><span class="math inline">\(a_i\)</span></th>
-<th style="text-align: center;"><span class="math inline">\(\ell_i\)</span></th>
+<th style="text-align: center;"><span class="math inline">r_i</span></th>
+<th style="text-align: center;"><span class="math inline">g_i</span></th>
+<th style="text-align: center;"><span class="math inline">a_i</span></th>
+<th style="text-align: center;"><span class="math inline">\ell_i</span></th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: center;"><span class="math inline">\(Q_1\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_1</span></td>
 <td style="text-align: center;">Clarificación</td>
 <td style="text-align: center;">0.90</td>
 <td style="text-align: center;">0.90</td>
@@ -306,7 +320,7 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 <td style="text-align: center;">0.75</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><span class="math inline">\(Q_2\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_2</span></td>
 <td style="text-align: center;">Clarificación</td>
 <td style="text-align: center;">0.80</td>
 <td style="text-align: center;">0.72</td>
@@ -314,7 +328,7 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 <td style="text-align: center;">0.55</td>
 </tr>
 <tr class="odd">
-<td style="text-align: center;"><span class="math inline">\(Q_3\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_3</span></td>
 <td style="text-align: center;">Clarificación</td>
 <td style="text-align: center;">0.72</td>
 <td style="text-align: center;">0.78</td>
@@ -322,7 +336,7 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 <td style="text-align: center;">0.70</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><span class="math inline">\(Q_4\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_4</span></td>
 <td style="text-align: center;">Preferencias</td>
 <td style="text-align: center;">0.89</td>
 <td style="text-align: center;">0.84</td>
@@ -330,7 +344,7 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 <td style="text-align: center;">0.80</td>
 </tr>
 <tr class="odd">
-<td style="text-align: center;"><span class="math inline">\(Q_5\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_5</span></td>
 <td style="text-align: center;">Preferencias</td>
 <td style="text-align: center;">0.80</td>
 <td style="text-align: center;">0.76</td>
@@ -338,7 +352,7 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 <td style="text-align: center;">0.45</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><span class="math inline">\(Q_6\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_6</span></td>
 <td style="text-align: center;">Preferencias</td>
 <td style="text-align: center;">0.70</td>
 <td style="text-align: center;">0.67</td>
@@ -346,7 +360,7 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 <td style="text-align: center;">0.40</td>
 </tr>
 <tr class="odd">
-<td style="text-align: center;"><span class="math inline">\(Q_7\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_7</span></td>
 <td style="text-align: center;">Objetivos</td>
 <td style="text-align: center;">0.92</td>
 <td style="text-align: center;">0.88</td>
@@ -354,7 +368,7 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 <td style="text-align: center;">1.00</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><span class="math inline">\(Q_8\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_8</span></td>
 <td style="text-align: center;">Objetivos</td>
 <td style="text-align: center;">0.77</td>
 <td style="text-align: center;">0.80</td>
@@ -362,7 +376,7 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 <td style="text-align: center;">0.65</td>
 </tr>
 <tr class="odd">
-<td style="text-align: center;"><span class="math inline">\(Q_9\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_9</span></td>
 <td style="text-align: center;">Objetivos</td>
 <td style="text-align: center;">0.75</td>
 <td style="text-align: center;">0.68</td>
@@ -371,108 +385,108 @@ u_i = 0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i
 </tr>
 </tbody>
 </table>
-<p>Parámetros del sistema: máximo de preguntas <span class="math inline">\(M=4\)</span>, presupuesto de carga cognitiva <span class="math inline">\(B=4{,}70\)</span>, presupuesto de latencia <span class="math inline">\(L=2{,}80\)</span>, cobertura mínima por categoría <span class="math inline">\(m_k=0{,}70\)</span>.</p>
+<p>Parámetros del sistema: máximo de preguntas <span class="math inline">M=4</span>, presupuesto de carga cognitiva <span class="math inline">B=4{,}70</span>, presupuesto de latencia <span class="math inline">L=2{,}80</span>, cobertura mínima por categoría <span class="math inline">m_k=0{,}70</span>.</p>
 </section>
 <section id="formulación-matemática" class="level2">
 <h2 class="anchored" data-anchor-id="formulación-matemática">Formulación matemática</h2>
 <section id="modelo-de-planificación-continuo-programa-lineal" class="level3">
 <h3 class="anchored" data-anchor-id="modelo-de-planificación-continuo-programa-lineal">Modelo de planificación continuo (Programa Lineal)</h3>
-<p>Sea <span class="math inline">\(x_i \in [0,1]\)</span> la proporción esperada de sesiones en las que se recomienda la pregunta <span class="math inline">\(i\)</span>.</p>
+<p>Sea <span class="math inline">x_i \in [0,1]</span> la proporción esperada de sesiones en las que se recomienda la pregunta <span class="math inline">i</span>.</p>
 <p><strong>Conjuntos e índices:</strong></p>
 <ul>
-<li><span class="math inline">\(I = \{1, 2, \ldots, 9\}\)</span>: conjunto de preguntas candidatas.</li>
-<li><span class="math inline">\(K = \{C, P, O\}\)</span>: conjunto de categorías.</li>
-<li><span class="math inline">\(I_k \subseteq I\)</span>: subconjunto de preguntas de la categoría <span class="math inline">\(k\)</span>.</li>
+<li><span class="math inline">I = \{1, 2, \ldots, 9\}</span>: conjunto de preguntas candidatas.</li>
+<li><span class="math inline">K = \{C, P, O\}</span>: conjunto de categorías.</li>
+<li><span class="math inline">I_k \subseteq I</span>: subconjunto de preguntas de la categoría <span class="math inline">k</span>.</li>
 </ul>
-<p><strong>Parámetros:</strong> <span class="math inline">\(r_i\)</span>, <span class="math inline">\(g_i\)</span>, <span class="math inline">\(a_i\)</span>, <span class="math inline">\(\ell_i\)</span>; <span class="math inline">\(M=4\)</span>, <span class="math inline">\(B=4{,}70\)</span>, <span class="math inline">\(L=2{,}80\)</span>, <span class="math inline">\(m_k=0{,}70\)</span>.</p>
+<p><strong>Parámetros:</strong> <span class="math inline">r_i</span>, <span class="math inline">g_i</span>, <span class="math inline">a_i</span>, <span class="math inline">\ell_i</span>; <span class="math inline">M=4</span>, <span class="math inline">B=4{,}70</span>, <span class="math inline">L=2{,}80</span>, <span class="math inline">m_k=0{,}70</span>.</p>
 <p><strong>Función objetivo:</strong></p>
-<p><span class="math display">\[
+<p><span class="math display">
 \max\; Z = \sum_{i=1}^{9} \bigl(0{,}55\,r_i + 0{,}45\,g_i - 0{,}08\,a_i\bigr)\,x_i
-\]</span></p>
+</span></p>
 <p><strong>Restricciones:</strong></p>
-<p><span class="math display">\[
+<p><span class="math display">
 \sum_{i=1}^{9} x_i \leq 4 \qquad \text{(máximo de preguntas)}
-\]</span></p>
-<p><span class="math display">\[
+</span></p>
+<p><span class="math display">
 \sum_{i=1}^{9} a_i\,x_i \leq 4{,}70 \qquad \text{(presupuesto de carga cognitiva)}
-\]</span></p>
-<p><span class="math display">\[
+</span></p>
+<p><span class="math display">
 \sum_{i=1}^{9} \ell_i\,x_i \leq 2{,}80 \qquad \text{(presupuesto de latencia)}
-\]</span></p>
-<p><span class="math display">\[
+</span></p>
+<p><span class="math display">
 \sum_{i \in I_k} x_i \geq 0{,}70 \qquad \forall\, k \in \{C, P, O\} \quad \text{(cobertura)}
-\]</span></p>
-<p><span class="math display">\[
+</span></p>
+<p><span class="math display">
 0 \leq x_i \leq 1 \qquad \forall\, i \in I
-\]</span></p>
-<p>Este modelo es <strong>completamente lineal</strong>: la función objetivo es lineal en <span class="math inline">\(x_i\)</span>, y todas las restricciones son desigualdades lineales. Se resuelve con <a href="./parte1_implementacion.html"><code>scipy.optimize.linprog</code></a>.</p>
+</span></p>
+<p>Este modelo es <strong>completamente lineal</strong>: la función objetivo es lineal en <span class="math inline">x_i</span>, y todas las restricciones son desigualdades lineales. Se resuelve con <a href="./parte1_implementacion.html"><code>scipy.optimize.linprog</code></a>.</p>
 </section>
 <section id="extensión-binaria-programa-lineal-entero" class="level3">
 <h3 class="anchored" data-anchor-id="extensión-binaria-programa-lineal-entero">Extensión binaria (Programa Lineal Entero)</h3>
 <p>Para cumplir la condición empresarial de seleccionar exactamente hasta cuatro preguntas concretas, se introduce la variable binaria:</p>
-<p><span class="math display">\[
+<p><span class="math display">
 y_i \in \{0, 1\}, \quad
 y_i = \begin{cases} 1 &amp; \text{si se recomienda la pregunta } i, \\ 0 &amp; \text{en caso contrario.} \end{cases}
-\]</span></p>
-<p>Se sustituye <span class="math inline">\(x_i\)</span> por <span class="math inline">\(y_i\)</span> en las ecuaciones del modelo continuo, y el dominio pasa a ser binario. Esta formulación es de <strong>programación lineal entera binaria</strong> (PLIB) y se resuelve con PuLP.</p>
+</span></p>
+<p>Se sustituye <span class="math inline">x_i</span> por <span class="math inline">y_i</span> en las ecuaciones del modelo continuo, y el dominio pasa a ser binario. Esta formulación es de <strong>programación lineal entera binaria</strong> (PLIB) y se resuelve con PuLP.</p>
 </section>
 </section>
 <section id="implementación-y-resultados" class="level2">
 <h2 class="anchored" data-anchor-id="implementación-y-resultados">Implementación y resultados</h2>
 <section id="solución-del-modelo-continuo-lp" class="level3">
 <h3 class="anchored" data-anchor-id="solución-del-modelo-continuo-lp">Solución del modelo continuo (LP)</h3>
-<p>La solución óptima del LP, obtenida con <code>scipy.optimize.linprog</code>, alcanza una utilidad de <span class="math inline">\(Z^* \approx 2{,}8348\)</span>, con asignaciones fraccionarias que distribuyen la recomendación entre más de cuatro preguntas.</p>
+<p>La solución óptima del LP, obtenida con <code>scipy.optimize.linprog</code>, alcanza una utilidad de <span class="math inline">Z^* \approx 2{,}8348</span>, con asignaciones fraccionarias que distribuyen la recomendación entre más de cuatro preguntas.</p>
 </section>
 <section id="solución-del-modelo-binario-ilp" class="level3">
 <h3 class="anchored" data-anchor-id="solución-del-modelo-binario-ilp">Solución del modelo binario (ILP)</h3>
-<p>La solución óptima del ILP selecciona las preguntas <span class="math inline">\(Q_3\)</span>, <span class="math inline">\(Q_4\)</span>, <span class="math inline">\(Q_5\)</span> y <span class="math inline">\(Q_8\)</span>:</p>
+<p>La solución óptima del ILP selecciona las preguntas <span class="math inline">Q_3</span>, <span class="math inline">Q_4</span>, <span class="math inline">Q_5</span> y <span class="math inline">Q_8</span>:</p>
 <table class="table-striped table-hover caption-top table">
 <caption>Solución óptima del modelo binario.</caption>
 <thead>
 <tr class="header">
 <th style="text-align: center;">Pregunta</th>
-<th style="text-align: center;">Utilidad <span class="math inline">\(u_i\)</span></th>
+<th style="text-align: center;">Utilidad <span class="math inline">u_i</span></th>
 <th style="text-align: center;">Decisión</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: center;"><span class="math inline">\(Q_3\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_3</span></td>
 <td style="text-align: center;">0.6710</td>
 <td style="text-align: center;">Seleccionada</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><span class="math inline">\(Q_4\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_4</span></td>
 <td style="text-align: center;">0.7555</td>
 <td style="text-align: center;">Seleccionada</td>
 </tr>
 <tr class="odd">
-<td style="text-align: center;"><span class="math inline">\(Q_5\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_5</span></td>
 <td style="text-align: center;">0.6940</td>
 <td style="text-align: center;">Seleccionada</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;"><span class="math inline">\(Q_8\)</span></td>
+<td style="text-align: center;"><span class="math inline">Q_8</span></td>
 <td style="text-align: center;">0.6875</td>
 <td style="text-align: center;">Seleccionada</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Utilidad óptima entera:</strong> <span class="math inline">\(Z^*_{\text{ILP}} = 2{,}8080\)</span>.</p>
-<p><strong>Recursos utilizados:</strong> carga cognitiva <span class="math inline">\(= 4{,}65 \leq 4{,}70\)</span>; latencia <span class="math inline">\(= 2{,}60 \leq 2{,}80\)</span>.</p>
-<p><strong>Cobertura:</strong> <span class="math inline">\(Q_3 \in C\)</span>, <span class="math inline">\(Q_4, Q_5 \in P\)</span>, <span class="math inline">\(Q_8 \in O\)</span> — al menos una pregunta por categoría.</p>
-<p>La diferencia entre la solución continua (<span class="math inline">\(2{,}8348\)</span>) y la entera (<span class="math inline">\(2{,}8080\)</span>) ilustra la <strong>brecha de integralidad</strong>: la relajación LP proporciona una cota superior, mientras que el ILP da la solución operativa implementable.</p>
+<p><strong>Utilidad óptima entera:</strong> <span class="math inline">Z^*_{\text{ILP}} = 2{,}8080</span>.</p>
+<p><strong>Recursos utilizados:</strong> carga cognitiva <span class="math inline">= 4{,}65 \leq 4{,}70</span>; latencia <span class="math inline">= 2{,}60 \leq 2{,}80</span>.</p>
+<p><strong>Cobertura:</strong> <span class="math inline">Q_3 \in C</span>, <span class="math inline">Q_4, Q_5 \in P</span>, <span class="math inline">Q_8 \in O</span> — al menos una pregunta por categoría.</p>
+<p>La diferencia entre la solución continua (<span class="math inline">2{,}8348</span>) y la entera (<span class="math inline">2{,}8080</span>) ilustra la <strong>brecha de integralidad</strong>: la relajación LP proporciona una cota superior, mientras que el ILP da la solución operativa implementable.</p>
 </section>
 </section>
 <section id="análisis-de-sensibilidad" class="level2">
 <h2 class="anchored" data-anchor-id="análisis-de-sensibilidad">Análisis de sensibilidad</h2>
 <p>Se realizó análisis de sensibilidad variando los parámetros críticos:</p>
 <ul>
-<li><strong>Presupuesto de carga cognitiva:</strong> Al reducir <span class="math inline">\(B\)</span> de <span class="math inline">\(4{,}70\)</span> a <span class="math inline">\(4{,}00\)</span>, la solución cambia: se excluye <span class="math inline">\(Q_4\)</span> (carga alta) y se incluye <span class="math inline">\(Q_6\)</span> (carga baja), reduciéndose la utilidad a <span class="math inline">\(\approx 2{,}55\)</span>.</li>
-<li><strong>Presupuesto de latencia:</strong> Al reducir <span class="math inline">\(L\)</span> de <span class="math inline">\(2{,}80\)</span> a <span class="math inline">\(2{,}00\)</span>, la restricción de latencia se vuelve activa y se priorizan preguntas con baja latencia (<span class="math inline">\(Q_5\)</span>, <span class="math inline">\(Q_6\)</span>, <span class="math inline">\(Q_9\)</span>).</li>
-<li><strong>Número de preguntas:</strong> Con <span class="math inline">\(M=3\)</span>, la utilidad disminuye a <span class="math inline">\(\approx 2{,}12\)</span>; con <span class="math inline">\(M=5\)</span>, aumenta a <span class="math inline">\(\approx 3{,}43\)</span> pero puede exceder los presupuestos.</li>
+<li><strong>Presupuesto de carga cognitiva:</strong> Al reducir <span class="math inline">B</span> de <span class="math inline">4{,}70</span> a <span class="math inline">4{,}00</span>, la solución cambia: se excluye <span class="math inline">Q_4</span> (carga alta) y se incluye <span class="math inline">Q_6</span> (carga baja), reduciéndose la utilidad a <span class="math inline">\approx 2{,}55</span>.</li>
+<li><strong>Presupuesto de latencia:</strong> Al reducir <span class="math inline">L</span> de <span class="math inline">2{,}80</span> a <span class="math inline">2{,}00</span>, la restricción de latencia se vuelve activa y se priorizan preguntas con baja latencia (<span class="math inline">Q_5</span>, <span class="math inline">Q_6</span>, <span class="math inline">Q_9</span>).</li>
+<li><strong>Número de preguntas:</strong> Con <span class="math inline">M=3</span>, la utilidad disminuye a <span class="math inline">\approx 2{,}12</span>; con <span class="math inline">M=5</span>, aumenta a <span class="math inline">\approx 3{,}43</span> pero puede exceder los presupuestos.</li>
 </ul>
-<p>Las restricciones activas en la solución base son la de carga cognitiva (holgura de <span class="math inline">\(0{,}05\)</span>) y la de máximo de preguntas (ajustada exactamente a 4).</p>
+<p>Las restricciones activas en la solución base son la de carga cognitiva (holgura de <span class="math inline">0{,}05</span>) y la de máximo de preguntas (ajustada exactamente a 4).</p>
 </section>
 <section id="discusión-crítica" class="level2">
 <h2 class="anchored" data-anchor-id="discusión-crítica">Discusión crítica</h2>
