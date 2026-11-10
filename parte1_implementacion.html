@@ -221,6 +221,13 @@ window.Quarto = {
 <span class="menu-text">About</span></a>
   </li>  
 </ul>
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/meaguirre3/Optimizacion"> <i class="bi bi-github" role="img" aria-label="Repositorio en GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
           </div> <!-- /navcollapse -->
             <div class="quarto-navbar-tools">
 </div>
@@ -249,7 +256,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#resumen-de-resultados" id="toc-resumen-de-resultados" class="nav-link" data-scroll-target="#resumen-de-resultados">5. Resumen de resultados</a></li>
   </ul>
-</nav>
+<div class="quarto-code-links"><h2>Código fuente</h2><ul><li><a href="parte1_implementacion.ipynb"><i class="bi bi-file-earmark-arrow-down"></i>Descargar notebook (.ipynb)</a></li><li><a href="https://github.com/meaguirre3/Optimizacion/blob/main/parte1_implementacion.ipynb" target="_blank"><i class="bi bi-github"></i>Ver en GitHub</a></li></ul></div></nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
@@ -286,7 +293,6 @@ window.Quarto = {
 </header>
 
 
-<p>—title: “Implementación — Parte I”subtitle: “Modelo de Programación Lineal para Selección de Preguntas”description: “Notebook con implementación en scipy y PuLP del modelo LP/ILP, visualizaciones y análisis de sensibilidad.”categories: [Parte I, Notebook, LP, ILP, Python]image: images/parte1_thumb.svgformat: html: code-fold: false code-tools: true—</p>
 <section id="implementación-en-python-con-visualización-de-resultados" class="level2">
 <h2 class="anchored" data-anchor-id="implementación-en-python-con-visualización-de-resultados">Implementación en Python con visualización de resultados</h2>
 <p>Este notebook presenta la implementación computacional del modelo de programación lineal (LP) y su extensión binaria (ILP) para la selección óptima de preguntas en un chatbot conversacional, tal como se formula en la Parte I del informe.</p>
@@ -294,7 +300,7 @@ window.Quarto = {
 <section id="datos-del-problema" class="level2">
 <h2 class="anchored" data-anchor-id="datos-del-problema">1. Datos del problema</h2>
 <p>Definimos los parámetros de las 9 preguntas candidatas y las restricciones del sistema.</p>
-<div id="cell-3" class="cell" data-execution_count="8">
+<div id="cell-3" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.optimize <span class="im">import</span> linprog</span>
@@ -339,7 +345,7 @@ window.Quarto = {
 <section id="modelo-continuo-lp-con-scipy.optimize.linprog" class="level2">
 <h2 class="anchored" data-anchor-id="modelo-continuo-lp-con-scipy.optimize.linprog">2. Modelo continuo (LP) con <code>scipy.optimize.linprog</code></h2>
 <p>Resolvemos el programa lineal relajado donde <span class="math inline">x_i \in [0, 1]</span>.</p>
-<div id="cell-5" class="cell" data-execution_count="9">
+<div id="cell-5" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">9</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># linprog minimiza, así que negamos la utilidad para maximizar</span></span>
@@ -388,7 +394,7 @@ Asignaciones óptimas (proporción de sesiones):
 <section id="modelo-binario-ilp-con-pulp" class="level2">
 <h2 class="anchored" data-anchor-id="modelo-binario-ilp-con-pulp">3. Modelo binario (ILP) con PuLP</h2>
 <p>Resolvemos el programa lineal entero binario donde <span class="math inline">y_i \in \{0, 1\}</span>.</p>
-<div id="cell-7" class="cell" data-execution_count="10">
+<div id="cell-7" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pulp <span class="im">import</span> LpMaximize, LpProblem, LpVariable, lpSum, value, LpBinary</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> LpProblem(<span class="st">'Seleccion_Preguntas'</span>, LpMaximize)</span>
@@ -451,7 +457,7 @@ Recursos utilizados:
 <h2 class="anchored" data-anchor-id="visualización-de-resultados">4. Visualización de resultados</h2>
 <section id="comparación-de-utilidades-por-pregunta" class="level3">
 <h3 class="anchored" data-anchor-id="comparación-de-utilidades-por-pregunta">4.1 Comparación de utilidades por pregunta</h3>
-<div id="cell-10" class="cell" data-execution_count="11">
+<div id="cell-10" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">5</span>))</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>colores_cat <span class="op">=</span> {<span class="st">'Clarificación'</span>: <span class="st">'#2196F3'</span>, <span class="st">'Preferencias'</span>: <span class="st">'#FF9800'</span>, <span class="st">'Objetivos'</span>: <span class="st">'#4CAF50'</span>}</span>
@@ -486,7 +492,7 @@ Recursos utilizados:
 </section>
 <section id="comparación-lp-vs-ilp" class="level3">
 <h3 class="anchored" data-anchor-id="comparación-lp-vs-ilp">4.2 Comparación LP vs ILP</h3>
-<div id="cell-12" class="cell" data-execution_count="12">
+<div id="cell-12" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">5</span>))</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Gráfico LP (continuo)</span></span>
@@ -521,7 +527,7 @@ Recursos utilizados:
 </section>
 <section id="uso-de-recursos-vs-presupuesto" class="level3">
 <h3 class="anchored" data-anchor-id="uso-de-recursos-vs-presupuesto">4.3 Uso de recursos vs presupuesto</h3>
-<div id="cell-14" class="cell" data-execution_count="13">
+<div id="cell-14" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">4</span>))</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>recursos <span class="op">=</span> [<span class="st">'Preguntas'</span>, <span class="st">'Carga cognitiva'</span>, <span class="st">'Latencia'</span>]</span>
@@ -557,8 +563,69 @@ Recursos utilizados:
 </section>
 <section id="análisis-de-sensibilidad" class="level3">
 <h3 class="anchored" data-anchor-id="análisis-de-sensibilidad">4.4 Análisis de sensibilidad</h3>
-<div id="cell-16" class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pulp <span class="im">import</span> PULP_CBC_CMDdef resolver_ilp_sens(M_val, B_val, L_val):    p <span class="op">=</span> LpProblem(<span class="st">'Sens'</span>, LpMaximize)    yv <span class="op">=</span> [LpVariable(<span class="ss">f'ys_</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">'</span>, cat<span class="op">=</span>LpBinary) <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n)]    p <span class="op">+=</span> lpSum(u[i] <span class="op">*</span> yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n))    p <span class="op">+=</span> lpSum(yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n)) <span class="op">&lt;=</span> M_val    p <span class="op">+=</span> lpSum(a[i] <span class="op">*</span> yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n)) <span class="op">&lt;=</span> B_val    p <span class="op">+=</span> lpSum(l[i] <span class="op">*</span> yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n)) <span class="op">&lt;=</span> L_val    p <span class="op">+=</span> lpSum(yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>)) <span class="op">&gt;=</span> m_k    p <span class="op">+=</span> lpSum(yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>, <span class="dv">6</span>)) <span class="op">&gt;=</span> m_k    p <span class="op">+=</span> lpSum(yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">6</span>, <span class="dv">9</span>)) <span class="op">&gt;=</span> m_k    p.solve(PULP_CBC_CMD(msg<span class="op">=</span><span class="dv">0</span>))    obj <span class="op">=</span> value(p.objective)    <span class="cf">return</span> <span class="bu">float</span>(obj) <span class="cf">if</span> obj <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span> <span class="cf">else</span> <span class="fl">0.0</span><span class="er">B_sens</span> <span class="op">=</span> [<span class="bu">round</span>(<span class="fl">3.5</span> <span class="op">+</span> i<span class="op">*</span><span class="fl">0.1</span>, <span class="dv">1</span>) <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">27</span>)]Z_B <span class="op">=</span> [resolver_ilp_sens(M, bv, L) <span class="cf">for</span> bv <span class="kw">in</span> B_sens]L_sens <span class="op">=</span> [<span class="bu">round</span>(<span class="fl">1.5</span> <span class="op">+</span> i<span class="op">*</span><span class="fl">0.1</span>, <span class="dv">1</span>) <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">27</span>)]Z_L <span class="op">=</span> [resolver_ilp_sens(M, B, lv) <span class="cf">for</span> lv <span class="kw">in</span> L_sens]M_sens <span class="op">=</span> [<span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">7</span>]Z_M <span class="op">=</span> [resolver_ilp_sens(mv, B, L) <span class="cf">for</span> mv <span class="kw">in</span> M_sens]<span class="co"># Filtrar infactiblesbx = [b for b, z in zip(B_sens, Z_B) if z &gt; 0]by = [z for z in Z_B if z &gt; 0]lx = [lv for lv, z in zip(L_sens, Z_L) if z &gt; 0]ly = [z for z in Z_L if z &gt; 0]fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))axes[0].plot(bx, by, 'o-', color='#D32F2F', markersize=4)axes[0].axvline(x=B, color='gray', linestyle='--', alpha=0.5, label=f'B={B}')axes[0].set_xlabel('Presupuesto de carga cognitiva (B)')axes[0].set_ylabel('Utilidad óptima Z*')axes[0].set_title('Sensibilidad a carga cognitiva')axes[0].legend()axes[1].plot(lx, ly, 's-', color='#1976D2', markersize=4)axes[1].axvline(x=L, color='gray', linestyle='--', alpha=0.5, label=f'L={L}')axes[1].set_xlabel('Presupuesto de latencia (L)')axes[1].set_ylabel('Utilidad óptima Z*')axes[1].set_title('Sensibilidad a latencia')axes[1].legend()axes[2].bar([str(m) for m in M_sens], Z_M, color='#4CAF50', alpha=0.8)axes[2].set_xlabel('Máximo de preguntas (M)')axes[2].set_ylabel('Utilidad óptima Z*')axes[2].set_title('Sensibilidad a número de preguntas')plt.suptitle('Análisis de sensibilidad', fontsize=13, fontweight='bold')plt.tight_layout()plt.show()</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="cell-16" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pulp <span class="im">import</span> PULP_CBC_CMD</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> resolver_ilp_sens(M_val, B_val, L_val):</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    p <span class="op">=</span> LpProblem(<span class="st">'Sens'</span>, LpMaximize)</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    yv <span class="op">=</span> [LpVariable(<span class="ss">f'ys_</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">'</span>, cat<span class="op">=</span>LpBinary) <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n)]</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    p <span class="op">+=</span> lpSum(u[i] <span class="op">*</span> yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n))</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    p <span class="op">+=</span> lpSum(yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n)) <span class="op">&lt;=</span> M_val</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    p <span class="op">+=</span> lpSum(a[i] <span class="op">*</span> yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n)) <span class="op">&lt;=</span> B_val</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    p <span class="op">+=</span> lpSum(l[i] <span class="op">*</span> yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n)) <span class="op">&lt;=</span> L_val</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    p <span class="op">+=</span> lpSum(yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>)) <span class="op">&gt;=</span> m_k</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    p <span class="op">+=</span> lpSum(yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">3</span>, <span class="dv">6</span>)) <span class="op">&gt;=</span> m_k</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    p <span class="op">+=</span> lpSum(yv[i] <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">6</span>, <span class="dv">9</span>)) <span class="op">&gt;=</span> m_k</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    p.solve(PULP_CBC_CMD(msg<span class="op">=</span><span class="dv">0</span>))</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    obj <span class="op">=</span> value(p.objective)</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">float</span>(obj) <span class="cf">if</span> obj <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span> <span class="cf">else</span> <span class="fl">0.0</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>B_sens <span class="op">=</span> [<span class="bu">round</span>(<span class="fl">3.5</span> <span class="op">+</span> i<span class="op">*</span><span class="fl">0.1</span>, <span class="dv">1</span>) <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">27</span>)]</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>Z_B <span class="op">=</span> [resolver_ilp_sens(M, bv, L) <span class="cf">for</span> bv <span class="kw">in</span> B_sens]</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>L_sens <span class="op">=</span> [<span class="bu">round</span>(<span class="fl">1.5</span> <span class="op">+</span> i<span class="op">*</span><span class="fl">0.1</span>, <span class="dv">1</span>) <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">27</span>)]</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>Z_L <span class="op">=</span> [resolver_ilp_sens(M, B, lv) <span class="cf">for</span> lv <span class="kw">in</span> L_sens]</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>M_sens <span class="op">=</span> [<span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">7</span>]</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>Z_M <span class="op">=</span> [resolver_ilp_sens(mv, B, L) <span class="cf">for</span> mv <span class="kw">in</span> M_sens]</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Filtrar infactibles</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>bx <span class="op">=</span> [b <span class="cf">for</span> b, z <span class="kw">in</span> <span class="bu">zip</span>(B_sens, Z_B) <span class="cf">if</span> z <span class="op">&gt;</span> <span class="dv">0</span>]</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>by <span class="op">=</span> [z <span class="cf">for</span> z <span class="kw">in</span> Z_B <span class="cf">if</span> z <span class="op">&gt;</span> <span class="dv">0</span>]</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>lx <span class="op">=</span> [lv <span class="cf">for</span> lv, z <span class="kw">in</span> <span class="bu">zip</span>(L_sens, Z_L) <span class="cf">if</span> z <span class="op">&gt;</span> <span class="dv">0</span>]</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>ly <span class="op">=</span> [z <span class="cf">for</span> z <span class="kw">in</span> Z_L <span class="cf">if</span> z <span class="op">&gt;</span> <span class="dv">0</span>]</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">3</span>, figsize<span class="op">=</span>(<span class="dv">15</span>, <span class="fl">4.5</span>))</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].plot(bx, by, <span class="st">'o-'</span>, color<span class="op">=</span><span class="st">'#D32F2F'</span>, markersize<span class="op">=</span><span class="dv">4</span>)</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].axvline(x<span class="op">=</span>B, color<span class="op">=</span><span class="st">'gray'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, alpha<span class="op">=</span><span class="fl">0.5</span>, label<span class="op">=</span><span class="ss">f'B=</span><span class="sc">{</span>B<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_xlabel(<span class="st">'Presupuesto de carga cognitiva (B)'</span>)</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_ylabel(<span class="st">'Utilidad óptima Z*'</span>)</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_title(<span class="st">'Sensibilidad a carga cognitiva'</span>)</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].legend()</span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].plot(lx, ly, <span class="st">'s-'</span>, color<span class="op">=</span><span class="st">'#1976D2'</span>, markersize<span class="op">=</span><span class="dv">4</span>)</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].axvline(x<span class="op">=</span>L, color<span class="op">=</span><span class="st">'gray'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, alpha<span class="op">=</span><span class="fl">0.5</span>, label<span class="op">=</span><span class="ss">f'L=</span><span class="sc">{</span>L<span class="sc">}</span><span class="ss">'</span>)</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_xlabel(<span class="st">'Presupuesto de latencia (L)'</span>)</span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_ylabel(<span class="st">'Utilidad óptima Z*'</span>)</span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_title(<span class="st">'Sensibilidad a latencia'</span>)</span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].legend()</span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].bar([<span class="bu">str</span>(m) <span class="cf">for</span> m <span class="kw">in</span> M_sens], Z_M, color<span class="op">=</span><span class="st">'#4CAF50'</span>, alpha<span class="op">=</span><span class="fl">0.8</span>)</span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].set_xlabel(<span class="st">'Máximo de preguntas (M)'</span>)</span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].set_ylabel(<span class="st">'Utilidad óptima Z*'</span>)</span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">2</span>].set_title(<span class="st">'Sensibilidad a número de preguntas'</span>)</span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>plt.suptitle(<span class="st">'Análisis de sensibilidad'</span>, fontsize<span class="op">=</span><span class="dv">13</span>, fontweight<span class="op">=</span><span class="st">'bold'</span>)</span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="parte1_implementacion_files/figure-html/cell-8-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
 </div>
 </section>
 </section>
